@@ -9,7 +9,8 @@ Phase 2는 A 담당 기반 도메인만 구현합니다.
 - `crops`: UUID 카탈로그와 안정적 기본 작물 6종
 - `get_my_profile()`, `complete_onboarding()`, `list_crops(p_energy)`
 - RLS, 직접 쓰기 차단, 함수 실행 권한 최소화
-- pgTAP 37개 검증과 로컬 Auth/RPC 통합 테스트
+- pgTAP 72개 검증과 `supabase-js` 기반 로컬 Auth/RPC 통합 테스트
+- 표준 비즈니스 오류 `UNAUTHENTICATED`, `NOT_FOUND`, `INVALID_INPUT`과 HTTP/SQLSTATE 매핑
 
 ## 안전한 MVP 기본값—검토 필요
 
@@ -17,7 +18,8 @@ Phase 2는 A 담당 기반 도메인만 구현합니다.
 - 닉네임: trim 후 1~30자, 회원가입 메타데이터가 길면 30자로 잘라 트리거 실패를 방지
 - 시간대 기본값: `Asia/Seoul`, 1~64자
 - 시간대는 현재 길이만 검증합니다. IANA 식별자 검증/변경 RPC는 팀 합의 후 추가합니다.
-- 이메일 확인 여부, redirect URL, Auth 오류 매핑은 운영 프로젝트 확정 후 합의합니다.
+- 이메일 확인 여부, redirect URL, Auth 제공자 오류 매핑은 운영 프로젝트 확정 후 합의합니다.
+- 로그아웃은 클라이언트 세션을 제거하지만 기존 access JWT는 만료까지 유효할 수 있으므로 운영 JWT 만료 정책을 확정합니다.
 
 ## 제외
 

@@ -7,11 +7,11 @@ revoke all on schema private from anon, authenticated;
 
 -- New public objects stay private until a migration grants access explicitly.
 alter default privileges for role postgres in schema public
-  revoke all on tables from anon, authenticated;
+  revoke all on tables from anon, authenticated, service_role;
 alter default privileges for role postgres in schema public
-  revoke all on sequences from anon, authenticated;
+  revoke all on sequences from anon, authenticated, service_role;
 alter default privileges for role postgres in schema public
-  revoke all on functions from anon, authenticated;
+  revoke all on functions from anon, authenticated, service_role;
 alter default privileges for role postgres
   revoke execute on functions from public;
 
@@ -77,8 +77,8 @@ for select
 to authenticated
 using (is_active);
 
-revoke all on table public.profiles from public, anon, authenticated;
-revoke all on table public.crops from public, anon, authenticated;
+revoke all on table public.profiles from public, anon, authenticated, service_role;
+revoke all on table public.crops from public, anon, authenticated, service_role;
 grant select on table public.profiles to authenticated;
 grant select on table public.crops to authenticated;
 
@@ -124,7 +124,7 @@ declare
   v_user_id uuid := (select auth.uid());
 begin
   if v_user_id is null then
-    raise exception using errcode = '42501', message = 'AUTH_REQUIRED';
+    raise exception using errcode = 'PT401', message = 'UNAUTHENTICATED';
   end if;
 
   return query
@@ -137,12 +137,12 @@ begin
   where p.id = v_user_id;
 
   if not found then
-    raise exception using errcode = 'P0002', message = 'PROFILE_NOT_FOUND';
+    raise exception using errcode = 'PT404', message = 'NOT_FOUND';
   end if;
 end;
 $$;
 
-create function private.complete_onboarding_for_current_user()
+create function public.complete_onboarding()
 returns timestamptz
 language plpgsql
 security definer
@@ -153,7 +153,7 @@ declare
   v_onboarded_at timestamptz;
 begin
   if v_user_id is null then
-    raise exception using errcode = '42501', message = 'AUTH_REQUIRED';
+    raise exception using errcode = 'PT401', message = 'UNAUTHENTICATED';
   end if;
 
   update public.profiles
@@ -162,21 +162,11 @@ begin
   returning onboarded_at into v_onboarded_at;
 
   if not found then
-    raise exception using errcode = 'P0002', message = 'PROFILE_NOT_FOUND';
+    raise exception using errcode = 'PT404', message = 'NOT_FOUND';
   end if;
 
   return v_onboarded_at;
 end;
-$$;
-
-create function public.complete_onboarding()
-returns timestamptz
-language sql
-volatile
-security invoker
-set search_path = ''
-as $$
-  select private.complete_onboarding_for_current_user();
 $$;
 
 create function public.list_crops(p_energy text)
@@ -196,7 +186,7 @@ declare
   v_user_id uuid := (select auth.uid());
 begin
   if v_user_id is null then
-    raise exception using errcode = '42501', message = 'AUTH_REQUIRED';
+    raise exception using errcode = 'PT401', message = 'UNAUTHENTICATED';
   end if;
 
   if p_energy is not null and p_energy not in ('low', 'medium', 'high') then
@@ -219,10 +209,7 @@ $$;
 revoke execute on function public.get_my_profile() from public, anon, authenticated, service_role;
 revoke execute on function public.complete_onboarding() from public, anon, authenticated, service_role;
 revoke execute on function public.list_crops(text) from public, anon, authenticated, service_role;
-revoke execute on function private.complete_onboarding_for_current_user() from public, anon, authenticated, service_role;
 
-grant usage on schema private to authenticated;
-grant execute on function private.complete_onboarding_for_current_user() to authenticated;
 grant execute on function public.get_my_profile() to authenticated;
 grant execute on function public.complete_onboarding() to authenticated;
 grant execute on function public.list_crops(text) to authenticated;

@@ -9,7 +9,7 @@ Phase 2 A 기반을 구현했습니다.
 - Supabase Auth 회원가입 프로필 트리거
 - `profiles`, `crops` 및 RLS
 - `get_my_profile()`, `complete_onboarding()`, `list_crops(p_energy)`
-- pgTAP DB 테스트와 로컬 Auth/RPC 통합 테스트
+- pgTAP DB 보안·계약 테스트와 `supabase-js` 로컬 Auth/RPC 통합 테스트
 
 원격 Supabase 프로젝트는 연결하지 않았습니다. B 도메인·Cron과 A의 농장/기록 조회는 후속 범위입니다.
 
@@ -32,7 +32,7 @@ npm run db:lint
 npm audit
 ```
 
-`test:integration`은 로컬 Supabase Auth에 실제 회원가입하고 액세스 토큰으로 세 RPC를 호출합니다. 운영 키나 원격 DB를 사용하지 않습니다.
+`test:integration`은 로컬 Supabase Auth에 실제 계정을 생성해 닉네임 경계, RLS, 동시 온보딩, RPC 오류 객체/HTTP status, JWT와 로그아웃을 검증한 뒤 사용자를 정리합니다. 운영 키나 원격 DB를 사용하지 않습니다.
 
 ## 문서
 
@@ -40,3 +40,6 @@ npm audit
 - [RPC·A/B 공통 계약](docs/api/rpc-contracts.md)
 - [마이그레이션 순서](docs/database/migrations.md)
 - [Phase 2 범위](docs/phase-2-scope.md)
+- [A/B 연동 계약](docs/integration/a-to-b-contract.md)
+- [농장·기록 조회 설계](docs/api/read-model-design.md)
+- [A 기반 검증 런북](docs/runbooks/a-foundation-verification.md)
