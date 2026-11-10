@@ -1,31 +1,43 @@
-# 데이터베이스 마이그레이션 규칙
+# 데이터베이스 마이그레이션
 
-## 생성
+## 순서
 
-새 마이그레이션은 CLI로만 생성합니다.
+1. `20261110152140_a_foundation.sql`
+   - `profiles`, `crops`
+   - 회원가입 프로필 트리거
+   - `get_my_profile()`, `complete_onboarding()`, `list_crops(p_energy)`
+   - RLS, 명시적 `GRANT`/`REVOKE`
+   - 기본 작물 6종과 안정 UUID
+
+B의 `farm_plots`, `focus_sessions`, `harvests`는 이 마이그레이션 다음에 추가하며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다.
+
+## 생성 규칙
 
 ```bash
 npx supabase migration new <descriptive_name>
 ```
 
-타임스탬프 파일명을 직접 만들거나 병합된 파일을 수정하지 않습니다.
+- 타임스탬프 파일명을 직접 만들지 않습니다.
+- 병합된 마이그레이션은 수정하지 않고 새 파일로 변경합니다.
+- 다른 마이그레이션에 의존하는 PR은 선행 PR을 기록합니다.
+- 공통 타입, RLS, 권한, 마이그레이션 순서는 A/B 모두 리뷰합니다.
 
-## 의존성과 소유권
-
-- A는 프로필과 작물 기반을 먼저 제공하고, B는 이를 참조하는 밭·세션 기능을 구현합니다.
-- A의 농장/기록 조회 RPC는 B의 쓰기 모델과 상태 전이가 확정된 뒤 구현합니다.
-- B의 자동 수확 Cron은 수확 함수의 멱등성과 동시 실행 안전성이 검증된 뒤 추가합니다.
-- 공통 타입, RLS, 권한과 마이그레이션 순서는 A/B 공동 검토 대상입니다.
-- 다른 migration에 의존하는 PR은 선행 PR 번호를 명시합니다.
-
-## 검증
-
-컨테이너 런타임이 준비되면 PR 전에 다음을 실행합니다.
+## 로컬 적용과 검증
 
 ```bash
 npm run db:reset
 npm run db:test
+npm run test:integration
 npm run db:lint
+npm audit
 ```
 
-테이블과 RPC를 추가할 때 허용 사례뿐 아니라 타 사용자 접근, 익명 접근, 중복 요청 등 거부 사례도 테스트합니다.
+`db:reset`은 로컬 DB를 재생성하므로 필요한 로컬 데이터를 미리 보존합니다. `test:integration`은 로컬 Auth에 사용자를 생성하지만 운영 `service_role` 키를 사용하지 않습니다.
+
+## B 의존성
+
+- `farm_plots.user_id` → `profiles.id`
+- `focus_sessions.crop_id` → `crops.id`
+- `start_focus` 시 `crops.target_seconds`를 세션에 복사
+- 복합 소유권 FK와 수확 멱등성은 [RPC 계약](../api/rpc-contracts.md)을 따름
+- `ensure_farm()`과 `complete_onboarding()` 연결은 B 마이그레이션 병합 후 공동 마이그레이션으로 처리

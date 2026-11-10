@@ -2,33 +2,29 @@
 
 Phase 2는 A 담당 기반 도메인만 구현합니다.
 
-## 포함
+## 구현 완료
 
-1. 이메일/비밀번호 Auth 정책 확정 및 로컬 설정 반영
-2. 프로필 스키마와 `auth.users` 연계 방식 구현
-3. `get_my_profile()` 구현
-4. `complete_onboarding()` 구현
-5. 작물 카탈로그 최소 스키마와 개발용 seed 구현
-6. `list_crops(p_energy)` 구현
-7. 위 테이블과 RPC의 RLS, `GRANT`, 함수 실행 권한 구현
-8. 인증 사용자 본인 접근, 타 사용자/익명 거부, 입력 경계에 대한 pgTAP 테스트
-9. RPC 계약 문서의 Phase 2 관련 `TBD`를 합의된 값으로 갱신
+- `profiles`: Auth UUID PK/FK, 닉네임, 시간대, 온보딩 시각, 생성 시각
+- Auth 트리거: 메타데이터 닉네임으로 멱등적 프로필 생성
+- `crops`: UUID 카탈로그와 안정적 기본 작물 6종
+- `get_my_profile()`, `complete_onboarding()`, `list_crops(p_energy)`
+- RLS, 직접 쓰기 차단, 함수 실행 권한 최소화
+- pgTAP 37개 검증과 로컬 Auth/RPC 통합 테스트
 
-## 선행 조건
+## 안전한 MVP 기본값—검토 필요
 
-- 원격과 분리된 로컬 컨테이너 런타임 준비
-- 프로필 필드, 온보딩 완료 조건과 프로필 생성 시점 확정
-- 이메일 확인 여부와 Auth redirect URL 확정
-- `p_energy` 타입, 허용 범위와 정렬 규칙 확정
-- 작물 카탈로그 필드와 초기 seed 목록 확정
-- 반환 JSON/row 타입과 공통 오류 코드 확정
-- B 담당자의 GitHub 사용자명과 마이그레이션 리뷰 절차 확정
+- 닉네임 누락·공백: `농부`
+- 닉네임: trim 후 1~30자, 회원가입 메타데이터가 길면 30자로 잘라 트리거 실패를 방지
+- 시간대 기본값: `Asia/Seoul`, 1~64자
+- 시간대는 현재 길이만 검증합니다. IANA 식별자 검증/변경 RPC는 팀 합의 후 추가합니다.
+- 이메일 확인 여부, redirect URL, Auth 오류 매핑은 운영 프로젝트 확정 후 합의합니다.
 
 ## 제외
 
-- 밭, 집중 세션, 일시정지, 씨앗, 수확, 휴식, 초기화, Cron
-- `get_my_farm()`과 `get_focus_history(p_period)` 구현
+- 밭, 집중 세션, 일시정지, 씨앗, 수확, 휴식, 기록 초기화, Cron
+- B의 `ensure_farm()` 및 나머지 RPC
+- `get_my_farm()`, `get_focus_history(p_period)`
 - 프론트엔드 코드
-- 원격 Supabase 배포
+- 원격 Supabase 연결·배포
 
-농장 및 기록 조회 RPC는 B의 쓰기 모델과 상태 전이가 확정된 후 구현합니다.
+농장/기록 조회는 B 쓰기 모델과 상태 전이가 확정된 뒤 구현합니다.

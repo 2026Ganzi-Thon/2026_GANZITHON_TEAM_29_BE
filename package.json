@@ -9,7 +9,8 @@
     "db:stop": "supabase stop",
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
-    "db:lint": "supabase db lint"
+    "db:lint": "supabase db lint",
+    "test:integration": "node scripts/test-auth-rpc.mjs"
   },
   "engines": {
     "node": ">=20"
