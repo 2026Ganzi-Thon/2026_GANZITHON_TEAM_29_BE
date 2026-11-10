@@ -29,6 +29,10 @@ npm audit
 - `get_my_profile`, `list_crops`: invoker
 - `complete_onboarding`, `handle_new_user`: 필요한 definer, `search_path = ''`, `auth.uid()`/스키마 명시
 
+## GitHub Actions
+
+`.github/workflows/backend-ci.yml`은 `develop`/`main` 대상 PR과 수동 실행에서 동작합니다. 권한은 `contents: read`만 사용하고, 운영 Secret과 원격 Supabase를 참조하지 않습니다. 로컬 키가 로그에 표시되지 않도록 `supabase start` stdout을 숨기고, `if: always()` 정리 단계에서 임시 볼륨을 삭제합니다.
+
 ## PR 설명 초안
 
 ### 범위

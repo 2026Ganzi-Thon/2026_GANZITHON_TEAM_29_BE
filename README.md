@@ -34,6 +34,10 @@ npm audit
 
 `test:integration`은 로컬 Supabase Auth에 실제 계정을 생성해 닉네임 경계, RLS, 동시 온보딩, RPC 오류 객체/HTTP status, JWT와 로그아웃을 검증한 뒤 사용자를 정리합니다. 운영 키나 원격 DB를 사용하지 않습니다.
 
+## CI
+
+`develop` 또는 `main` 대상 Pull Request와 수동 실행에서 [Backend CI](.github/workflows/backend-ci.yml)가 실행됩니다. CI는 원격 Supabase/Secret 없이 임시 로컬 스택을 시작해 `db:reset`, pgTAP 72개, Auth/RPC 통합, DB lint, `npm audit`을 검증하고 항상 스택을 정리합니다.
+
 ## 문서
 
 - [개발 및 브랜치 규칙](docs/development.md)

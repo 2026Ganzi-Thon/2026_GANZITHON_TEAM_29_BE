@@ -100,3 +100,23 @@ B 마이그레이션은 A 커밋/마이그레이션에 의존함을 PR에 표시
 | 자동 수확 알림 스키마 | `get_my_farm()` 반환 필드에 영향 | A/B/프론트엔드 |
 | 기록 초기화의 물리/논리 삭제 | 후속 조회 동작에 영향 | A/B/기획 |
 | 시간대 변경 정책 | 기존 `record_date` 재계산 여부 | A/기획 |
+
+## 7. B 로컬 시작 절차
+
+```bash
+npm ci
+npm run db:start
+npm run db:reset
+npm run db:test
+npm run test:integration
+```
+
+`test:integration`이 로컬 Auth 계정을 고유 이메일로 생성하고 테스트 종료 시 삭제합니다. 공용 테스트 계정, 운영 계정, `service_role` 키를 준비할 필요가 없습니다. 상세 절차는 [A 기반 검증 런북](../runbooks/a-foundation-verification.md)을 따릅니다.
+
+## 8. RLS·함수·Cron 권한 주의사항
+
+- `authenticated`는 `profiles`, `crops` SELECT만 가집니다. B 테이블 쓰기는 직접 GRANT가 아닌 소유권을 검증하는 RPC로 제공합니다.
+- A 테이블·RPC에는 `service_role` 명시 권한이 없습니다. 관리용 서비스 클라이언트가 정말 필요한 경우 A/B 공동 마이그레이션으로 특정 테이블 `SELECT` 또는 특정 함수 `EXECUTE`만 추가합니다.
+- DB 내부 Supabase Cron은 `service_role` API 키를 사용하는 구조가 아닙니다. `pg_cron` job은 스케줄한 DB role로 실행되므로 `cron.job.username`과 대상 함수의 소유자/EXECUTE를 함께 검증합니다.
+- `process_due_harvests()`에 definer가 필요하면 비공개 schema, 고정 `search_path`, 최소 EXECUTE, 멱등성과 동시성 테스트를 B 마이그레이션에 포함합니다.
+- `private` schema를 `authenticated`/`service_role`에 전체 공개하지 않습니다. 필요한 내부 함수는 공개 RPC 또는 Cron 소유 함수에서만 호출합니다.

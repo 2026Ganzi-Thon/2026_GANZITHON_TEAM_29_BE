@@ -50,6 +50,27 @@ await supabase.auth.signOut()
 
 익명 호출은 함수 `EXECUTE`가 없어 본문에 도달하지 않습니다. 실제 응답은 HTTP 401, `code = 42501`, `message = permission denied for function ...`입니다. 프론트엔드는 세션이 없는 `42501` 응답을 `UNAUTHENTICATED`로 정규화합니다. `AUTH_REQUIRED`, `PROFILE_NOT_FOUND`는 더 이상 사용하지 않습니다.
 
+### 프론트엔드 정규화 규칙
+
+`message`보다 `code`를 먼저 판단합니다.
+
+```js
+function normalizeBackendError(error, hasSession) {
+  if (error.code === 'PGRST301' || error.code === 'PT401') return 'UNAUTHENTICATED'
+  if (error.code === '42501' && !hasSession) return 'UNAUTHENTICATED'
+  if (error.code === '22023') return 'INVALID_INPUT'
+  if (error.code === 'PT404') return 'NOT_FOUND'
+  return 'UNKNOWN'
+}
+```
+
+- 로그아웃/JWT 누락: 클라이언트가 토큰을 보내지 않아 `42501`; `UNAUTHENTICATED`로 정규화
+- 변조·파싱 불가 JWT: `PGRST301`; `UNAUTHENTICATED`로 정규화
+- 세션이 있는 `42501`: 권한 설정 오류이므로 사용자 문구로 숨기고 운영 오류로 기록
+- `INVALID_STATE`: B 상태 전이 구현 후 SQLSTATE가 확정될 때 분기 추가
+
+`signOut()`은 클라이언트 세션을 제거하지만 이미 발급된 access JWT는 만료 전까지 유효할 수 있습니다. 로그아웃 후 토큰을 보관·재사용하지 않습니다.
+
 ## Phase 2 A RPC
 
 ### `get_my_profile()`
