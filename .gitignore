@@ -1,0 +1,17 @@
+node_modules/
+coverage/
+*.log
+
+.env
+.env.*
+!.env.example
+
+supabase/.branches/
+supabase/.temp/
+supabase/signing_keys.json
+supabase/*.pem
+supabase/*.key
+
+.DS_Store
+.idea/
+.vscode/

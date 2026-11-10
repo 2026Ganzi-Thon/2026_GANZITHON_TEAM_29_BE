@@ -1,0 +1,20 @@
+{
+  "name": "focus-farm-backend",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Supabase backend for 2026 Ganzi-Thon Team 29 Focus Farm",
+  "scripts": {
+    "supabase": "supabase",
+    "db:start": "supabase start",
+    "db:stop": "supabase stop",
+    "db:reset": "supabase db reset",
+    "db:test": "supabase test db",
+    "db:lint": "supabase db lint"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "supabase": "3.1.0"
+  }
+}

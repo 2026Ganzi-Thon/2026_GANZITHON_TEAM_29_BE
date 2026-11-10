@@ -1,0 +1,2 @@
+-- Local development seed data will be added with Phase 2 domain migrations.
+-- Never copy production users, credentials, or personal data into this file.
