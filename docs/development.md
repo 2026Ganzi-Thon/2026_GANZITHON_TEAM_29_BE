@@ -1,20 +1,8 @@
 # 개발 및 협업 규칙
 
-## 최초 저장소 초기화
+## 저장소 상태
 
-원격 저장소에 커밋이 없으므로 로컬 `main`에서 최초 부트스트랩 커밋을 만든 뒤 원격 `main`을 생성해야 합니다. 이번 작업에서는 커밋과 push를 수행하지 않습니다.
-
-최초 부트스트랩을 검토하고 승인한 뒤 다음 순서로 진행합니다.
-
-```bash
-git add .
-git commit -m "chore: bootstrap Supabase backend"
-git push -u origin main
-git switch -c develop
-git push -u origin develop
-```
-
-첫 커밋 전에는 Git이 가리킬 커밋이 없으므로 `develop`을 정상 브랜치로 만들 수 없습니다.
+원격 `main`과 `develop`의 최초 부트스트랩은 완료되었습니다. 새 작업은 최신 `origin/develop`에서 이슈 브랜치를 만들고 PR로 병합합니다. 초기화 명령을 다시 실행하거나 기존 Git 기록을 재작성하지 않습니다.
 
 ## 브랜치
 
@@ -39,6 +27,7 @@ git push -u origin develop
 - 원격 변경 전에는 대상과 dry-run 결과를 확인합니다.
 - `SUPABASE_YES`를 환경 파일에 저장하지 않습니다.
 - 원격 프로젝트가 확정되기 전에는 `supabase link`를 실행하지 않습니다.
+- 원격 환경 준비와 배포는 [환경 분리 전략](deployment/environment-strategy.md)과 [마이그레이션 런북](deployment/migration-runbook.md)을 따릅니다.
 
 ## 보안
 

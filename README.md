@@ -14,7 +14,7 @@ Spring Boot 또는 별도 애플리케이션 서버와 프론트엔드 코드는
 
 ## 현재 상태
 
-Phase 1 공용 개발 기반만 구성되어 있습니다. 업무 테이블, RPC, RLS 정책 및 Cron은 아직 구현하지 않았습니다. 원격 Supabase 프로젝트도 연결하지 않았습니다.
+`develop`에는 Phase 1 공용 개발 기반이 구성되어 있습니다. A 기반 테이블·RPC·RLS와 Backend CI는 PR #1에서 리뷰 중이며 B 기능과 원격 Supabase 프로젝트는 아직 준비되지 않았습니다.
 
 ## 시작하기
 
@@ -32,4 +32,4 @@ npm run db:start
 
 컨테이너 런타임이 실행 중이어야 `db:start`, `db:reset`, `db:test`, `db:lint`를 사용할 수 있습니다. 현재 업무 테스트 SQL은 아직 없어 `db:test`가 `NOTESTS`를 반환합니다.
 
-개발 및 브랜치 규칙은 [docs/development.md](docs/development.md), RPC 계약은 [docs/api/rpc-contracts.md](docs/api/rpc-contracts.md)를 참고하세요.
+개발 및 브랜치 규칙은 [docs/development.md](docs/development.md), RPC 계약은 [docs/api/rpc-contracts.md](docs/api/rpc-contracts.md), 운영 준비는 [docs/deployment/environment-strategy.md](docs/deployment/environment-strategy.md)를 참고하세요.
