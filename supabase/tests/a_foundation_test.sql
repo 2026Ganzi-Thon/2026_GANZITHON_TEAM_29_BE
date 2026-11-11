@@ -1,6 +1,6 @@
 begin;
 
-select plan(72);
+select plan(74);
 
 -- Schema and integrity
 select has_table('public', 'profiles', 'profiles table exists');
@@ -183,6 +183,28 @@ select ok(not has_function_privilege('service_role', 'public.complete_onboarding
 select ok(not has_function_privilege('service_role', 'public.list_crops(text)', 'execute'), 'service_role cannot execute list_crops');
 select ok(not has_function_privilege('authenticated', 'private.handle_new_user()', 'execute'), 'authenticated cannot execute the trigger function');
 select ok(not has_function_privilege('service_role', 'private.handle_new_user()', 'execute'), 'service_role cannot execute the trigger function');
+select is(
+  (
+    select count(*)
+    from pg_proc as p
+    join pg_namespace as n on n.oid = p.pronamespace
+    where n.nspname in ('public', 'private')
+      and has_function_privilege('anon', p.oid, 'execute')
+  ),
+  0::bigint,
+  'anon cannot execute any application function'
+);
+select is(
+  (
+    select count(*)
+    from pg_proc as p
+    join pg_namespace as n on n.oid = p.pronamespace
+    where n.nspname in ('public', 'private')
+      and has_function_privilege('service_role', p.oid, 'execute')
+  ),
+  0::bigint,
+  'service_role cannot execute any application function'
+);
 select ok(not has_schema_privilege('authenticated', 'private', 'usage'), 'authenticated cannot use the private schema');
 select ok(not has_table_privilege('service_role', 'public.profiles', 'truncate'), 'service_role cannot truncate profiles');
 select ok(not has_table_privilege('service_role', 'public.crops', 'truncate'), 'service_role cannot truncate crops');

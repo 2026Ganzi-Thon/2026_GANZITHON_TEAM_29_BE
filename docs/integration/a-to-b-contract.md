@@ -53,6 +53,10 @@ B는 작물 ID, 목표 시간, 활성 여부를 직접 변경하지 않습니다
 
 `start_focus` 트랜잭션은 `crops.target_seconds`를 읽어 세션에 복사합니다. `target_seconds`, `focused_seconds`, `record_date`는 서버가 확정하며 클라이언트 입력을 신뢰하지 않습니다.
 
+- B 스키마는 `target_seconds > 0`, `focused_seconds >= 0`을 보장합니다.
+- 집중 시작 직후 중단해 경과 초가 없으면 `focused_seconds = 0`인 `seed_saved` 기록을 허용합니다. 음수는 거부하고 0초를 1초로 보정하지 않습니다.
+- B 테스트에는 즉시 중단 0초 저장, 일시정지 구간만 있는 0초 저장, 음수 거부, 정상 양수 누적을 포함합니다.
+
 ## 3. B가 참조할 A RPC
 
 | RPC | 반환 필드 | 용도 |
@@ -79,6 +83,8 @@ await supabase.rpc('start_focus', { p_plot_id: plotId, p_crop_id: cropId })
 6. A/B 온보딩–`ensure_farm()` 통합 마이그레이션
 
 B 마이그레이션은 A 커밋/마이그레이션에 의존함을 PR에 표시합니다. 이미 병합된 A 마이그레이션을 수정하지 않습니다.
+
+PR #1 병합 전에는 원격 `develop`에 A 마이그레이션이 없습니다. B는 병합 후 최신 `develop`에서 이슈 브랜치를 만들고, 병렬 작업이 불가피하면 `feat/a-foundation`을 기반으로 작업하되 A 마이그레이션을 복제하지 않습니다.
 
 ## 5. A/B 통합 테스트
 
@@ -117,6 +123,8 @@ npm run test:integration
 
 - `authenticated`는 `profiles`, `crops` SELECT만 가집니다. B 테이블 쓰기는 직접 GRANT가 아닌 소유권을 검증하는 RPC로 제공합니다.
 - A 테이블·RPC에는 `service_role` 명시 권한이 없습니다. 관리용 서비스 클라이언트가 정말 필요한 경우 A/B 공동 마이그레이션으로 특정 테이블 `SELECT` 또는 특정 함수 `EXECUTE`만 추가합니다.
+- 기본 권한 철회는 `public` schema의 `anon`, `authenticated`, `service_role`에만 적용합니다. 모든 schema에 영향을 주는 전역 `PUBLIC` 함수 기본 권한은 변경하지 않습니다.
+- 각 함수는 생성 직후 `PUBLIC`, `anon`, `authenticated`, `service_role`의 `EXECUTE`를 명시적으로 철회하고 필요한 role만 다시 부여합니다. pgTAP은 `public`·`private`의 모든 앱 함수에 예상하지 않은 `anon`·`service_role` 실행 권한이 없는지 검사합니다.
 - DB 내부 Supabase Cron은 `service_role` API 키를 사용하는 구조가 아닙니다. `pg_cron` job은 스케줄한 DB role로 실행되므로 `cron.job.username`과 대상 함수의 소유자/EXECUTE를 함께 검증합니다.
 - `process_due_harvests()`에 definer가 필요하면 비공개 schema, 고정 `search_path`, 최소 EXECUTE, 멱등성과 동시성 테스트를 B 마이그레이션에 포함합니다.
 - `private` schema를 `authenticated`/`service_role`에 전체 공개하지 않습니다. 필요한 내부 함수는 공개 RPC 또는 Cron 소유 함수에서만 호출합니다.

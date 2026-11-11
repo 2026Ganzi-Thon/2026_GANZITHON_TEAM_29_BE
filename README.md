@@ -36,7 +36,7 @@ npm audit
 
 ## CI
 
-`develop` 또는 `main` 대상 Pull Request와 수동 실행에서 [Backend CI](.github/workflows/backend-ci.yml)가 실행됩니다. CI는 원격 Supabase/Secret 없이 임시 로컬 스택을 시작해 `db:reset`, pgTAP 72개, Auth/RPC 통합, DB lint, `npm audit`을 검증하고 항상 스택을 정리합니다.
+`develop` 또는 `main` 대상 Pull Request와 수동 실행에서 [Backend CI](.github/workflows/backend-ci.yml)가 실행됩니다. CI는 원격 Supabase/Secret 없이 임시 로컬 스택을 시작해 `db:reset`, pgTAP 74개, Auth/RPC 통합, DB lint, `npm audit`을 검증하고 항상 스택을 정리합니다.
 
 ## 문서
 

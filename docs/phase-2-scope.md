@@ -9,7 +9,7 @@ Phase 2는 A 담당 기반 도메인만 구현합니다.
 - `crops`: UUID 카탈로그와 안정적 기본 작물 6종
 - `get_my_profile()`, `complete_onboarding()`, `list_crops(p_energy)`
 - RLS, 직접 쓰기 차단, 함수 실행 권한 최소화
-- pgTAP 72개 검증과 `supabase-js` 기반 로컬 Auth/RPC 통합 테스트
+- pgTAP 74개 검증과 `supabase-js` 기반 로컬 Auth/RPC 통합 테스트
 - 표준 비즈니스 오류 `UNAUTHENTICATED`, `NOT_FOUND`, `INVALID_INPUT`과 HTTP/SQLSTATE 매핑
 
 ## 안전한 MVP 기본값—검토 필요

@@ -8,7 +8,8 @@
 - `user_id`는 `auth.users.id` UUID이며 `profiles.id`와 같습니다. 사용자 ID는 입력받지 않고 `auth.uid()`로 확인합니다.
 - `plot_id`, `crop_id`, `session_id`는 모두 UUID입니다.
 - `target_seconds`는 심기 시점의 `crops.target_seconds`를 세션에 복사합니다. 클라이언트 값을 신뢰하지 않습니다.
-- `focused_seconds`는 서버가 확정하는 양의 정수 초입니다.
+- `target_seconds`는 `> 0`, `focused_seconds`는 서버가 확정하는 `>= 0` 정수 초입니다.
+- 집중 시작 직후 중단하면 `focused_seconds = 0`인 `seed_saved` 기록을 허용합니다. 서버는 이를 1초로 보정하지 않으며 음수는 거부합니다.
 - 시각은 UTC `TIMESTAMPTZ`로 저장하고, `record_date`는 사용자 시간대의 세션 시작일입니다.
 - 세션당 수확은 한 번만 허용합니다.
 
