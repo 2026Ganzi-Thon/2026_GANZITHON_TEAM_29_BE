@@ -48,5 +48,5 @@ npm audit
 - `focus_sessions.crop_id` → `crops.id`
 - `start_focus` 시 `crops.target_seconds`를 세션에 복사
 - 복합 소유권 FK와 수확 멱등성은 [RPC 계약](../api/rpc-contracts.md)을 따름
-- `ensure_farm()`과 `complete_onboarding()` 연결은 B 마이그레이션 병합 후 공동 마이그레이션으로 처리
+- `ensure_farm()` 성공 후 `complete_onboarding()`을 호출하며, 실패 시 같은 순서로 멱등 재시도
 - B/Cron에 필요한 `service_role` 권한은 새 객체에 명시적으로만 `GRANT`; A 테이블/RPC에는 기본 권한 없음
