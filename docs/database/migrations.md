@@ -10,7 +10,12 @@
    - 기본 작물 6종과 안정 UUID
    - `PT401`/`PT404`/`22023` PostgREST 오류 매핑
 
-B의 `farm_plots`, `focus_sessions`, `harvests`는 이 마이그레이션 다음에 추가하며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다.
+2. `20261113012151_b_farm_foundation.sql`
+   - `farm_plots`, 복합 소유권 제약, `ensure_farm()`
+3. `20261113020509_b_focus_sessions.sql`
+   - `focus_sessions`, 집중 시작·조회·일시정지·재개 RPC
+
+세 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. 집중 세션은 목표 도달·24시간 일시정지 만료 후 DB 상태 확정이 아직 없으므로 후속 수정 전에는 Staging에 배포하지 않습니다.
 
 ## 생성 규칙
 

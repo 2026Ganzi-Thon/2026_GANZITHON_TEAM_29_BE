@@ -84,7 +84,7 @@ await supabase.rpc('start_focus', { p_plot_id: plotId, p_crop_id: cropId })
 
 B 마이그레이션은 A 커밋/마이그레이션에 의존함을 PR에 표시합니다. 이미 병합된 A 마이그레이션을 수정하지 않습니다.
 
-PR #1 병합 전에는 원격 `develop`에 A 마이그레이션이 없습니다. B는 병합 후 최신 `develop`에서 이슈 브랜치를 만들고, 병렬 작업이 불가피하면 `feat/a-foundation`을 기반으로 작업하되 A 마이그레이션을 복제하지 않습니다.
+PR #1, #3, #5가 `develop`에 병합되어 A 기반, B 농장 기반, B 집중 세션 마이그레이션이 순서대로 존재합니다. 후속 작업은 최신 `develop`에서 분기하고 기존 마이그레이션을 복제하거나 수정하지 않습니다.
 
 ## 5. A/B 통합 테스트
 

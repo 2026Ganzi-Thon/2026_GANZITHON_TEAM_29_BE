@@ -36,7 +36,7 @@ await supabase.auth.getSession()
 await supabase.auth.signOut()
 ```
 
-`nickname`은 표시 정보로만 사용하고 소유권 판단에 사용하지 않습니다. 이메일 확인, redirect URL, Auth 상세 오류 매핑은 운영 프로젝트 확정 후 A/프론트엔드가 결정합니다.
+`nickname`은 표시 정보로만 사용하고 소유권 판단에 사용하지 않습니다. 신규 가입을 허용하고 Confirm email은 OFF이며 이메일 인증 링크를 사용하지 않습니다. Staging Dashboard 저장은 완료됐지만 원격 회원가입 동작은 아직 실측하지 않았습니다. Redirect URL과 Auth 상세 오류 매핑은 A/프론트엔드가 별도로 확정합니다.
 
 ## 오류 계약
 
@@ -96,7 +96,7 @@ const { data, error } = await supabase.rpc('complete_onboarding')
 // data: '2026-11-10T15:30:00+00:00'
 ```
 
-`ensure_farm()`은 아직 호출하지 않습니다. B 구현 후 트랜잭션 경계와 재시도 소유자를 A/B가 결정합니다.
+`ensure_farm()`은 구현되어 있으며 온보딩 완료와의 호출 순서·재시도 소유자는 A/B/프론트엔드가 확정합니다.
 
 ### `list_crops(p_energy)`
 

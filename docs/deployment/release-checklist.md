@@ -1,60 +1,46 @@
-# 운영 릴리스 체크리스트
+# Staging 최초 배포 체크리스트
 
-실제 원격 프로젝트가 없으므로 아래 항목은 아직 PASS가 아닙니다.
+## 2026-11-13 사전 검증
+
+- [x] \`focus-farm-staging (klanbfvywwudprunaqdf)\`, Seoul, PostgreSQL 17.11
+- [x] CLI 3.1.0 인증 및 IPv4 Session Pooler
+- [x] 원격 migration·업무 객체 0개
+- [x] 로컬 DB reset
+- [x] pgTAP 103개
+- [x] Auth/RPC 통합 테스트
+- [x] DB lint 오류 없음
+- [x] npm audit 취약점 0개
+- [x] dry-run 후보 3개
+- [ ] 집중 세션 완료·만료 상태 확정 문제 해결
+- [ ] 같은 SHA의 GitHub Actions 성공
+- [ ] A/B 리뷰와 실제 배포 승인
+- [ ] 실제 마이그레이션 적용
+
+미완료 항목 때문에 현재는 **배포 보류**입니다.
 
 ## 배포 전
 
-- [ ] 배포 환경, 조직, 프로젝트명, Project Ref를 두 명이 대조
-- [ ] GoldenLook 및 다른 프로젝트가 아님을 확인
-- [ ] 배포 커밋이 승인된 `develop` 또는 `main` HEAD와 일치
-- [ ] PR 리뷰와 GitHub Actions 성공
-- [ ] 로컬 `db:reset`, pgTAP, Auth/RPC 통합, lint, audit 성공
-- [ ] `migration list --remote` 차이가 예상과 일치
-- [ ] `db push --dry-run --remote` 적용 목록 승인
-- [ ] RLS, GRANT/REVOKE, definer 함수와 Cron 권한 검토
-- [ ] Production 최신 백업과 복구 담당자 확인
-- [ ] Site URL, Redirect URL, 이메일 확인, SMTP 정책 확인
-- [ ] 프론트가 해당 환경의 URL/Publishable key만 사용하는지 확인
+- [ ] 승인된 \`develop\` SHA 또는 릴리스 후보와 배포 SHA 일치
+- [ ] 프로젝트 이름·Ref를 두 명이 대조하고 GoldenLook이 아님을 확인
+- [ ] 원격 migration list와 업무 객체 재확인
+- [ ] dry-run 목록과 승인 목록의 순서 일치
+- [ ] RLS, GRANT/REVOKE, definer 함수와 트리거 검토
+- [ ] \`focus_sessions.crop_id\` FK 인덱스 advisor INFO 수용 또는 후속 마이그레이션 결정
+- [ ] Staging 데이터와 복구 담당자 확인
+- [ ] Confirm email OFF와 신규 가입 허용 확인
+- [ ] 프론트가 Staging URL/Publishable key만 사용
 
-## 배포
+## 배포와 스모크 테스트
 
-- [ ] GitHub Environment 또는 기록된 수동 승인 완료
-- [ ] 한 명만 마이그레이션 실행
-- [ ] Production에서 reset, seed, migration repair를 실행하지 않음
-- [ ] 적용된 migration version과 명령 결과 보존
+- [ ] 기록된 수동 승인 후 한 명만 \`db push --skip-vault --remote\`
+- [ ] reset, seed, repair와 원격 초기화 미실행
+- [ ] 적용 version과 출력 보존
+- [ ] 가입 직후 세션 발급, nickname 프로필 생성
+- [ ] A RPC 3개와 작물 6종
+- [ ] \`ensure_farm()\` 멱등성과 밭 12개
+- [ ] 타 사용자 접근 거부와 RLS 격리
+- [ ] 집중 시작·조회·일시정지·재개
+- [ ] 익명 접근 차단
+- [ ] Auth/API/DB 로그 확인
 
-## 클라우드 스모크 테스트
-
-환경별 테스트 계정만 사용합니다. Production에서는 데이터 삭제·초기화·동시성 파괴 테스트를 실행하지 않습니다.
-
-- [ ] 이메일/비밀번호 회원가입 정책이 설정대로 동작
-- [ ] 이메일 확인 활성 시 확인 전/후 로그인 동작
-- [ ] 로그인과 JWT 발급·refresh
-- [ ] 회원가입 후 프로필이 정확히 1개 생성
-- [ ] `get_my_profile()` 호출
-- [ ] `complete_onboarding()` 반복 호출이 동일 시각 반환
-- [ ] `list_crops(p_energy)`와 고정 작물 6종/UUID/목표 초 확인
-- [ ] 사용자 A가 사용자 B 프로필을 읽거나 변경할 수 없음
-- [ ] 익명 사용자가 보호 RPC를 호출할 수 없음
-- [ ] DB 연결이 SSL과 승인된 자격 증명으로만 동작
-- [ ] 프론트 CORS/Site URL/Redirect URL이 해당 환경과 일치
-- [ ] Secret이 브라우저 요청·번들·로그에 없음
-
-## 배포 후
-
-- [ ] `migration list --remote`가 저장소와 일치
-- [ ] DB lint/advisors 결과 검토
-- [ ] Auth 4xx/429/5xx, Data API 오류, DB 로그 확인
-- [ ] 성능·연결 수·DB 크기·rate limit 관찰
-- [ ] 문제가 없다는 관찰 담당자 확인 후 릴리스 종료
-- [ ] 문제 발생 시 [마이그레이션 런북](migration-runbook.md)의 복구 절차 실행
-
-## B 기능 병합 이후 추가
-
-- 밭 생성과 복합 소유권 FK
-- 집중 세션 상태 전이 및 0초 `seed_saved`
-- 수확 1회 보장과 동시성
-- 사용자 시간대 `record_date`
-- 자동 수확 Cron의 실행 역할·멱등성·실패 로그
-
-이 항목들은 B 스키마가 병합되기 전에는 검증 완료로 표시하지 않습니다.
+원격 테스트 계정 생성은 별도 승인 후 수행합니다. 문제 발생 시 추가 배포를 중단하고 [마이그레이션 런북](migration-runbook.md)의 데이터 보존 우선 복구 절차를 따릅니다.

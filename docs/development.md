@@ -26,7 +26,7 @@
 - 로컬 실행이 기본입니다. 호스팅 프로젝트 대상 명령은 반드시 `--remote`로 명시합니다.
 - 원격 변경 전에는 대상과 dry-run 결과를 확인합니다.
 - `SUPABASE_YES`를 환경 파일에 저장하지 않습니다.
-- 원격 프로젝트가 확정되기 전에는 `supabase link`를 실행하지 않습니다.
+- Staging 연결은 승인된 `focus-farm-staging (klanbfvywwudprunaqdf)`에만 수행하며 명령 전후 대상 Ref를 확인합니다.
 - 원격 환경 준비와 배포는 [환경 분리 전략](deployment/environment-strategy.md)과 [마이그레이션 런북](deployment/migration-runbook.md)을 따릅니다.
 
 ## 보안
