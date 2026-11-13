@@ -1,6 +1,6 @@
 # RPC 계약
 
-이 문서는 프론트엔드와 A/B 백엔드가 공유하는 계약입니다. Phase 2에서 구현된 A RPC 외의 반환 형식과 상세 제약은 결정 전까지 `TBD`입니다.
+이 문서는 프론트엔드와 A/B 백엔드가 공유하는 계약입니다. 명시된 RPC 계약을 적용하며, 미확정 반환 형식과 제약은 `TBD`입니다.
 
 ## 공통 규칙
 
@@ -47,7 +47,7 @@ await supabase.auth.signOut()
 | `UNAUTHENTICATED` | `PT401` | `UNAUTHENTICATED` | 401 | 함수 본문에 도달했지만 `auth.uid()`가 없음 |
 | `NOT_FOUND` | `PT404` | `NOT_FOUND` | 404 | 인증 사용자의 프로필 없음 |
 | `INVALID_INPUT` | `22023` | `INVALID_INPUT` | 400 | 허용되지 않은 입력 |
-| `INVALID_STATE` | `TBD` | `INVALID_STATE` | `TBD` | B 상태 전이 계약 후 A/B 결정 |
+| `INVALID_STATE` | `PT409` | 표시 문구 | 409 | 집중 세션 RPC의 `details`에 식별자 포함 |
 
 익명 호출은 함수 `EXECUTE`가 없어 본문에 도달하지 않습니다. 실제 응답은 HTTP 401, `code = 42501`, `message = permission denied for function ...`입니다. 프론트엔드는 세션이 없는 `42501` 응답을 `UNAUTHENTICATED`로 정규화합니다. `AUTH_REQUIRED`, `PROFILE_NOT_FOUND`는 더 이상 사용하지 않습니다.
 
@@ -68,7 +68,7 @@ function normalizeBackendError(error, hasSession) {
 - 로그아웃/JWT 누락: 클라이언트가 토큰을 보내지 않아 `42501`; `UNAUTHENTICATED`로 정규화
 - 변조·파싱 불가 JWT: `PGRST301`; `UNAUTHENTICATED`로 정규화
 - 세션이 있는 `42501`: 권한 설정 오류이므로 사용자 문구로 숨기고 운영 오류로 기록
-- `INVALID_STATE`: B 상태 전이 구현 후 SQLSTATE가 확정될 때 분기 추가
+- 집중 세션 상태 전이 오류는 `PT409`와 `details`로 분기합니다.
 
 `signOut()`은 클라이언트 세션을 제거하지만 이미 발급된 access JWT는 만료 전까지 유효할 수 있습니다. 로그아웃 후 토큰을 보관·재사용하지 않습니다.
 
@@ -127,7 +127,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - 프로필이 없으면 `PT404`, 익명 호출은 실행 권한이 없어 `42501`입니다.
 - 농장 상태 조회는 후속 `get_my_farm()`이 담당합니다.
 
-`start_focus(p_plot_id, p_crop_id)`, `get_active_focus()`, `pause_focus(p_session_id)`, `resume_focus(p_session_id)`, `preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `harvest_crop(p_session_id)`, `process_due_harvests()`, `ack_auto_harvest_notice(p_harvest_ids)`, `save_harvest_note(p_harvest_id, p_note)`, `start_rest(p_harvest_id)`, `reset_farm_history()`의 함수명과 입력명은 유지합니다. 반환 형식·상태 전이·메모/토큰 제약은 B가 제안하고 A/프론트엔드와 확정하기 전까지 `TBD`입니다.
+`preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `harvest_crop(p_session_id)`, `process_due_harvests()`, `ack_auto_harvest_notice(p_harvest_ids)`, `save_harvest_note(p_harvest_id, p_note)`, `start_rest(p_harvest_id)`, `reset_farm_history()`의 함수명과 입력명은 유지합니다. 반환 형식·상태 전이·메모/토큰 제약은 B가 제안하고 A/프론트엔드와 확정하기 전까지 `TBD`입니다.
 
 ## 상태
 
@@ -135,3 +135,31 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - 농장 표시: `empty`, `growing`, `ripe`, `harvested`
 
 세션 상태 전이, 실패 롤백, 자동 수확 경계는 B/A 공동 결정 전까지 `TBD`입니다.
+
+## 집중 세션 (Issue #4)
+
+- `start_focus(p_plot_id, p_crop_id)` (POST) → `{ session_id, plot_id, crop_id, status, started_at, target_seconds, server_now }`. 본인 빈 밭과 활성 작물만 허용하며, 사용자별 `focusing` 또는 `paused` 세션을 한 개로 제한합니다.
+- `get_active_focus()` (GET) → `{ session, server_now, show_overwork_notice }`. `session`은 `null` 또는 `{ session_id, plot_id, crop_id, status, started_at, paused_at, target_seconds, focused_seconds, remaining_seconds }`입니다.
+- `pause_focus(p_session_id)` (POST) → `{ session_id, status, paused_at, remaining_seconds, server_now }`. 이미 일시정지 상태면 기존 일시정지 시각을 반환합니다.
+- `resume_focus(p_session_id)` (POST) → `{ session_id, status, remaining_seconds, server_now }`. 이미 집중 중이고 목표 도달 전이면 누적 휴식 시간을 수정하지 않습니다.
+
+서버는 경과 시간에서 누적 휴식 시간을 뺀 뒤 초 단위로 내림합니다. 일시정지 중에는 `paused_at`을 계산 기준으로 사용합니다. `record_date`는 사용자 시간대 기준 시작일입니다.
+
+### 집중 세션 오류
+
+기존 A RPC는 `message`로 비즈니스 오류를 식별합니다. 집중 세션 RPC는 Notion 계약에 따라 `details`에 식별자를, `message`에 표시 문구를 둡니다. 프론트엔드는 집중 세션 응답의 `code`와 `details`를 사용합니다.
+
+| SQLSTATE / HTTP | details |
+| --- | --- |
+| PT400 / 400 | INVALID_INPUT |
+| PT401 / 401 | UNAUTHENTICATED |
+| PT404 / 404 | PLOT_NOT_FOUND, CROP_NOT_FOUND, SESSION_NOT_FOUND |
+| PT409 / 409 | PLOT_OCCUPIED, ACTIVE_SESSION_EXISTS, INVALID_STATE, PAUSE_EXPIRED |
+
+비활성 작물은 `CROP_NOT_FOUND`로 처리합니다. 익명 실행은 권한 계층에서 차단되며 기존과 동일하게 `42501`이 반환될 수 있습니다.
+
+### 완료·만료 및 과로 안내
+
+- 조회는 목표 도달과 24시간 일시정지 만료 세션을 숨기며 DB 상태를 변경하지 않습니다.
+- 후속 서버 처리에서 목표 도달은 `ripe`, 일시정지 만료는 `seed_saved`로 확정할 예정입니다. 확정 전에는 기존 활성 세션이 UNIQUE 제약에 남으므로 새 시작이 409로 거부될 수 있습니다. 새 시작 전 자동 확정 여부는 팀 정책 결정 대기입니다.
+- `show_overwork_notice`는 세션이 없으면 `false`입니다. 활성 세션에도 현재는 임시로 `false`를 반환하며, 표시 조건과 표시 이력 정책은 결정 대기입니다.
