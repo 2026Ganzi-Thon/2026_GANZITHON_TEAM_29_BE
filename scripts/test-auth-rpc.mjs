@@ -124,6 +124,69 @@ try {
   assert.equal(anonymousFarm.status, 401)
   assert.equal(anonymousFarm.body?.code, '42501')
 
+  const startArgs = {
+    p_plot_id: firstFarm.data[0].plot_id,
+    p_crop_id: '10000000-0000-4000-8000-000000000001',
+  }
+  const foreignStart = await userB.client.rpc('start_focus', startArgs)
+  assert.equal(foreignStart.error?.details, 'PLOT_NOT_FOUND')
+  const missingCrop = await userA.client.rpc('start_focus', { ...startArgs, p_crop_id: randomUUID() })
+  assert.equal(missingCrop.error?.details, 'CROP_NOT_FOUND')
+  const inactiveCropId = randomUUID()
+  runLocalSql(`insert into public.crops (id, name, target_seconds, energy_level, sort_order, is_active)
+    values ('${inactiveCropId}', 'Test inactive ${inactiveCropId}', 600, 'low', 999, false)`)
+  try {
+    const inactiveCrop = await userA.client.rpc('start_focus', { ...startArgs, p_crop_id: inactiveCropId })
+    assert.equal(inactiveCrop.error?.details, 'CROP_NOT_FOUND')
+  } finally {
+    runLocalSql(`delete from public.crops where id = '${inactiveCropId}'`)
+  }
+
+  const starts = await Promise.all([
+    userA.client.rpc('start_focus', startArgs),
+    userA.client.rpc('start_focus', { ...startArgs, p_plot_id: firstFarm.data[1].plot_id }),
+  ])
+  assert.equal(starts.filter(({ error }) => !error).length, 1)
+  const startError = starts.find(({ error }) => error).error
+  assert.equal(startError.code, 'PT409')
+  assert.equal(startError.details, 'ACTIVE_SESSION_EXISTS')
+  const session = starts.find(({ error }) => !error).data
+  assert.equal(session.status, 'focusing')
+  assert.equal(session.target_seconds, 600)
+  const sessionArgs = { p_session_id: session.session_id }
+  const otherPause = await userB.client.rpc('pause_focus', sessionArgs)
+  assert.equal(otherPause.error?.details, 'SESSION_NOT_FOUND')
+  const otherActive = await userB.client.rpc('get_active_focus', undefined, { get: true })
+  assert.equal(otherActive.error, null)
+  assert.equal(otherActive.data.session, null)
+  assert.equal(otherActive.data.show_overwork_notice, false)
+
+  const pauses = await Promise.all([
+    userA.client.rpc('pause_focus', sessionArgs),
+    userA.client.rpc('pause_focus', sessionArgs),
+  ])
+  for (const pause of pauses) assert.equal(pause.error, null)
+  assert.equal(pauses[0].data.paused_at, pauses[1].data.paused_at)
+  const restoredClient = createTestClient()
+  clients.push(restoredClient)
+  const signIn = await restoredClient.auth.signInWithPassword({ email: userA.user.email, password })
+  assert.equal(signIn.error, null)
+  const restored = await restoredClient.rpc('get_active_focus', undefined, { get: true })
+  assert.equal(restored.error, null)
+  assert.equal(restored.data.session.session_id, session.session_id)
+  assert.equal(restored.data.session.status, 'paused')
+  assert.equal(restored.data.session.remaining_seconds, pauses[0].data.remaining_seconds)
+  // Temporary fallback until the active-session overwork policy is agreed.
+  assert.equal(restored.data.show_overwork_notice, false)
+  const resumes = await Promise.all([
+    restoredClient.rpc('resume_focus', sessionArgs),
+    userA.client.rpc('resume_focus', sessionArgs),
+  ])
+  for (const resume of resumes) {
+    assert.equal(resume.error, null)
+    assert.equal(resume.data.status, 'focusing')
+  }
+
   const profileCases = [
     [userA, '테스트🌱농부'],
     [userB, '농부'],
@@ -269,7 +332,7 @@ try {
   assert.equal(oldTokenRequest.status, 200, 'Existing access JWT remains valid until expiry after signout')
 
   console.log(
-    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, crops, error objects/status, JWT, signout)',
+    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, focus session restore and transitions, crops, error objects/status, JWT, signout)',
   )
 } finally {
   await Promise.all(clients.map((client) => client.auth.signOut().catch(() => {})))
