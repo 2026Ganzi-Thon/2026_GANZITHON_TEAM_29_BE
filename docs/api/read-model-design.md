@@ -54,53 +54,51 @@
 - 세션·수확 JOIN으로 밭이 중복 반환되지 않음
 - 보류 알림 있음/없음
 
-## `get_focus_history(p_period)`
+## `get_focus_history(p_period)` — 구현됨, 수확 집계 PARTIAL
 
 ### 입력과 기간
 
 | 값 | 범위 |
 |---|---|
-| `today` | `profiles.timezone`의 현재 날짜 00:00 이상, 다음 날 00:00 미만 |
-| `week` | 사용자 시간대의 월요일 00:00 이상, 다음 월요일 00:00 미만 |
-| `all` | 전체 `record_date`, 월별 오름차순 집계 권장 |
+| `today` | `profiles.timezone`의 현재 날짜 1일, 빈 날짜도 한 항목 반환 |
+| `week` | 사용자 시간대의 월요일~일요일 7일, 빈 날짜도 0으로 반환 |
+| `all` | 확정 기록의 최초~최종 `record_date`, 기록이 있는 날짜만 반환 |
 
-경계는 사용자 시간대에서 계산한 `[start, end)`를 UTC 시각으로 변환합니다. `record_date`는 세션 시작 시점에 서버가 확정하고 후속 수확 시각으로 바꾸지 않습니다.
+양 끝 날짜는 모두 포함합니다. `record_date`는 B가 세션 시작 시 사용자 시간대로 확정하므로 조회 시 UTC 시각으로 재변환하지 않습니다. `seed_saved | ripe | harvested`만 확정 기록으로 집계하고 `focusing | paused`는 제외합니다.
 
-### 반환 권장안—미확정
-
-기존 RPC 하나를 유지하므로 안정적 외피를 권장합니다.
+### 확정 반환 계약
 
 ```json
 {
   "period": "week",
   "range": { "start_date": "2026-11-09", "end_date": "2026-11-15", "timezone": "Asia/Seoul" },
-  "summary": { "focused_seconds": 7200, "seed_count": 1, "harvest_count": 2 },
+  "summary": { "focused_seconds": 7200, "seed_count": 1, "harvest_count": null },
   "items": [
-    { "record_date": "2026-11-09", "focused_seconds": 1800, "seed_count": 0, "harvest_count": 1 }
-  ]
+    { "record_date": "2026-11-09", "focused_seconds": 1800, "seed_count": 0, "harvest_count": null }
+  ],
+  "capabilities": { "harvest_count": false }
 }
 ```
 
-- `today`: 세션/작물 기록 목록을 시작 시각 내림차순으로 보여줄지 `TBD`
-- `week`: 7일 집계, 기록 없는 날짜 0 포함 권장
-- `all`: 월별 집계; 오래된 원시 기록은 cursor pagination 권장
-- 씨앗 보관과 수확은 각각 계수하되 `focused_seconds`는 세션당 한 번만 합산
-- `harvests.session_id UNIQUE`를 사용하고, JOIN 전 세션/수확을 각각 집계해 중복 합산 방지
-- 자동 수확은 수확 처리일이 아닌 원래 세션 `record_date`에 속하는 권장
-- 빈 결과는 0 요약과 빈 `items`
+- `focused_seconds`: 확정 세션의 초 합계이며 0초 기록도 유지
+- `seed_count`: `seed_saved` 세션 수
+- `harvest_count`: `harvests`가 아직 없으므로 정상값처럼 0을 반환하지 않고 `null`
+- `capabilities.harvest_count`: 현재 `false`; B 수확 스키마 연동 후에만 `true`
+- `all` 빈 결과: `range.start_date/end_date = null`, 0 요약, 빈 `items`
+- 다른 사용자 행은 `auth.uid()` 필터와 `focus_sessions` RLS로 이중 격리
+- 함수는 `STABLE SECURITY INVOKER`, 빈 `search_path`, 조회 전용
 
 ### 결정 대기
 
 - Figma v1.2의 실제 필드·그룹·정렬 확인: 프론트엔드/기획
-- `seed_saved`를 집중 시간 합계에 포함할지: 기획/A/B
+- 수확 집계의 원본 테이블·완료 시각·자동 수확 귀속일: B/기획
 - `reset_farm_history()`의 물리 삭제, 논리 삭제, 복구 규칙: B/기획
 - 시간대 변경 시 기존 `record_date` 보존 여부: A/기획
-- `today` 원시 목록 pagination 임계값: 프론트엔드/A
+- 일별 합계가 아닌 원시 세션 상세가 화면에 필요한지: 프론트엔드/A
+- 장기 사용 시 `focus_sessions(user_id, record_date)` 인덱스 추가: B/A 공동 마이그레이션 검토
 
 ### 테스트 계획
 
-- UTC 오프셋 양/음수, 일요일→월요일, 월/연도 경계
-- 세션 시작일과 수확일이 다른 경우
-- 씨앗/수확/자동 수확, 하나의 세션에 수확 1개
-- 빈 기록, 다른 사용자 격리, 초기화 후 조회
-- 동일 세션과 수확 JOIN 시 `focused_seconds` 중복 없음
+- pgTAP: 오늘/주간/전체, 월요일~일요일, 연도 경계 fixture, 0초, 빈 기록, 권한, 격리
+- Supabase JS: 실제 Auth 사용자, RPC JSON, 비정상 입력, 익명 차단, 사용자 격리
+- 수확 테이블 연동과 자동 수확은 B 스키마 병합 후 별도 테스트 추가

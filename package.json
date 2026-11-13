@@ -10,7 +10,8 @@
     "db:reset": "supabase db reset",
     "db:test": "supabase test db",
     "db:lint": "supabase db lint",
-    "test:integration": "node scripts/test-auth-rpc.mjs"
+    "test:integration": "node scripts/test-auth-rpc.mjs",
+    "test:history": "node scripts/test-focus-history.mjs"
   },
   "engines": {
     "node": ">=20"
