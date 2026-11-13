@@ -96,7 +96,7 @@ const { data, error } = await supabase.rpc('complete_onboarding')
 // data: '2026-11-10T15:30:00+00:00'
 ```
 
-`ensure_farm()`은 아직 호출하지 않습니다. B 구현 후 트랜잭션 경계와 재시도 소유자를 A/B가 결정합니다.
+농장 초기화 흐름에서는 멱등적인 `ensure_farm()`을 먼저 호출하고, 12칸 확인 후 `complete_onboarding()`을 마지막 완료 표시로 호출합니다. 둘은 단일 트랜잭션이 아니므로 실패하면 같은 순서를 다시 실행합니다. 이미 생성된 밭 ID와 최초 온보딩 시각은 유지됩니다.
 
 ### `list_crops(p_energy)`
 
@@ -112,10 +112,20 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 
 | 함수 | 입력 | 상태 |
 |---|---|---|
-| `get_my_farm()` | 없음 | B 쓰기 모델 후 구현; 세부 응답 `TBD` |
-| `get_focus_history(p_period)` | `today | week | all` | B 쓰기 모델 후 구현; 세부 응답 `TBD` |
+| `get_my_farm()` | 없음 | PR #7 구현·검증 완료, 병합 대기 |
+| `get_focus_history(p_period)` | `today | week | all` | 집중/씨앗 집계 구현; 수확 집계 PARTIAL |
 
 권장안·예시·결정 대기 항목은 [조회 모델 설계](read-model-design.md)에 기록합니다.
+
+### `get_focus_history(p_period)`
+
+- 반환: `{ period, range, summary, items, capabilities }` JSON 객체
+- `today`: 사용자 시간대의 오늘 1개 일별 항목
+- `week`: 월요일~일요일 7개 일별 항목
+- `all`: 확정 기록이 존재하는 날짜만 오름차순
+- 집계 상태: `seed_saved | ripe | harvested`; 활성 `focusing | paused` 제외
+- 수확 스키마 병합 전 `harvest_count = null`, `capabilities.harvest_count = false`
+- 잘못된 기간은 `22023 / INVALID_INPUT`
 
 ## B 담당 RPC
 
