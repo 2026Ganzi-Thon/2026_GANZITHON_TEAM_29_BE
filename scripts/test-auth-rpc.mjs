@@ -92,6 +92,38 @@ try {
   const boundary = await signup('boundary', '가'.repeat(30))
   const overlong = await signup('overlong', '나'.repeat(31))
 
+  // Both requests race to initialize a farm that does not yet exist.
+  const [firstFarm, concurrentFarm] = await Promise.all([
+    userA.client.rpc('ensure_farm'),
+    userA.client.rpc('ensure_farm'),
+  ])
+  assert.equal(firstFarm.error, null)
+  assert.equal(concurrentFarm.error, null)
+  assert.deepEqual(concurrentFarm.data, firstFarm.data)
+  assert.deepEqual(firstFarm.data.map((plot) => plot.plot_index), Array.from({ length: 12 }, (_, i) => i + 1))
+  assert.equal(new Set(firstFarm.data.map((plot) => plot.plot_id)).size, 12)
+  assert.ok(firstFarm.data.every(({ plot_id }) => /^[0-9a-f-]{36}$/.test(plot_id)))
+  const repeatedFarm = await userA.client.rpc('ensure_farm')
+  assert.equal(repeatedFarm.error, null)
+  assert.deepEqual(repeatedFarm.data, firstFarm.data)
+
+  const otherFarm = await userB.client.rpc('ensure_farm')
+  assert.equal(otherFarm.error, null)
+  assert.equal(otherFarm.data.length, 12)
+  const ownPlotIds = new Set(firstFarm.data.map((plot) => plot.plot_id))
+  assert.ok(otherFarm.data.every((plot) => !ownPlotIds.has(plot.plot_id)))
+
+  const { data: visiblePlots, error: farmReadError } = await userB.client.from('farm_plots').select('id')
+  assert.equal(farmReadError, null)
+  assert.deepEqual(new Set(visiblePlots.map((plot) => plot.id)), new Set(otherFarm.data.map((plot) => plot.plot_id)))
+  const { error: foreignWriteError } = await userB.client
+    .from('farm_plots').update({ plot_index: 13 }).eq('id', firstFarm.data[0].plot_id)
+  assert.equal(foreignWriteError?.code, '42501')
+
+  const anonymousFarm = await rawRpc('ensure_farm', {})
+  assert.equal(anonymousFarm.status, 401)
+  assert.equal(anonymousFarm.body?.code, '42501')
+
   const profileCases = [
     [userA, '테스트🌱농부'],
     [userB, '농부'],
@@ -215,6 +247,8 @@ try {
   const missingProfile = await signup('missing-profile', '삭제대상')
   assert.match(missingProfile.user.id, /^[0-9a-f-]{36}$/)
   runLocalSql(`delete from public.profiles where id = '${missingProfile.user.id}'::uuid`)
+  const missingFarm = await missingProfile.client.rpc('ensure_farm')
+  assertPostgrestError(missingFarm.error, { code: 'PT404', message: 'NOT_FOUND' })
   const missingProfileResult = await missingProfile.client.rpc('get_my_profile')
   assertPostgrestError(missingProfileResult.error, { code: 'PT404', message: 'NOT_FOUND' })
   const missingProfileHttp = await rawRpc('get_my_profile', {}, missingProfile.token)
@@ -235,7 +269,7 @@ try {
   assert.equal(oldTokenRequest.status, 200, 'Existing access JWT remains valid until expiry after signout')
 
   console.log(
-    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, crops, error objects/status, JWT, signout)',
+    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, crops, error objects/status, JWT, signout)',
   )
 } finally {
   await Promise.all(clients.map((client) => client.auth.signOut().catch(() => {})))

@@ -25,7 +25,7 @@
 | `focus_sessions.crop_id` | UUID → `crops.id` |
 | `harvests.session_id` | `UNIQUE` |
 
-상세한 소유권·마이그레이션 계약은 [A/B 연동 문서](../integration/a-to-b-contract.md)를 따릅니다. B 테이블은 현재 마이그레이션에 없습니다.
+상세한 소유권·마이그레이션 계약은 [A/B 연동 문서](../integration/a-to-b-contract.md)를 따릅니다. B의 농장 기반 마이그레이션은 `farm_plots`를 생성합니다.
 
 ## 인증
 
@@ -119,7 +119,15 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 
 ## B 담당 RPC
 
-`ensure_farm()`, `start_focus(p_plot_id, p_crop_id)`, `get_active_focus()`, `pause_focus(p_session_id)`, `resume_focus(p_session_id)`, `preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `harvest_crop(p_session_id)`, `process_due_harvests()`, `ack_auto_harvest_notice(p_harvest_ids)`, `save_harvest_note(p_harvest_id, p_note)`, `start_rest(p_harvest_id)`, `reset_farm_history()`의 함수명과 입력명은 유지합니다. 반환 형식·상태 전이·메모/토큰 제약은 B가 제안하고 A/프론트엔드와 확정하기 전까지 `TBD`입니다.
+### `ensure_farm()`
+
+- 입력: 없음
+- 반환: `[{ plot_id, plot_index }]` (UUID, INTEGER), `plot_index` 오름차순
+- 인증된 본인의 초기 밭 1~12번을 보장합니다. 반복·동시 호출에서도 기존 밭 ID를 유지합니다.
+- 프로필이 없으면 `PT404`, 익명 호출은 실행 권한이 없어 `42501`입니다.
+- 농장 상태 조회는 후속 `get_my_farm()`이 담당합니다.
+
+`start_focus(p_plot_id, p_crop_id)`, `get_active_focus()`, `pause_focus(p_session_id)`, `resume_focus(p_session_id)`, `preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `harvest_crop(p_session_id)`, `process_due_harvests()`, `ack_auto_harvest_notice(p_harvest_ids)`, `save_harvest_note(p_harvest_id, p_note)`, `start_rest(p_harvest_id)`, `reset_farm_history()`의 함수명과 입력명은 유지합니다. 반환 형식·상태 전이·메모/토큰 제약은 B가 제안하고 A/프론트엔드와 확정하기 전까지 `TBD`입니다.
 
 ## 상태
 
