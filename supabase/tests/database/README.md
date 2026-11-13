@@ -1,3 +1,3 @@
 # Database tests
 
-업무 테이블과 RPC가 추가되는 Phase 2부터 pgTAP 테스트를 이 디렉터리에 작성합니다. 현재는 구현 대상이 없어 테스트 SQL을 만들지 않습니다.
+Supabase CLI로 생성한 Phase 2 pgTAP 테스트는 `../a_foundation_test.sql`입니다. 후속 도메인 테스트는 기능별 파일로 추가합니다.
