@@ -107,11 +107,20 @@ try {
   assert.equal(repeatedFarm.error, null)
   assert.deepEqual(repeatedFarm.data, firstFarm.data)
 
+  const initialFarmView = await userA.client.rpc('get_my_farm')
+  assert.equal(initialFarmView.error, null)
+  assert.equal(initialFarmView.data.length, 12)
+  assert.deepEqual(initialFarmView.data.map(({ plot_index }) => plot_index), Array.from({ length: 12 }, (_, i) => i + 1))
+  assert.ok(initialFarmView.data.every(({ farm_status, session_id }) => farm_status === 'empty' && session_id === null))
+
   const otherFarm = await userB.client.rpc('ensure_farm')
   assert.equal(otherFarm.error, null)
   assert.equal(otherFarm.data.length, 12)
   const ownPlotIds = new Set(firstFarm.data.map((plot) => plot.plot_id))
   assert.ok(otherFarm.data.every((plot) => !ownPlotIds.has(plot.plot_id)))
+  const otherFarmView = await userB.client.rpc('get_my_farm')
+  assert.equal(otherFarmView.error, null)
+  assert.ok(otherFarmView.data.every((plot) => !ownPlotIds.has(plot.plot_id)))
 
   const { data: visiblePlots, error: farmReadError } = await userB.client.from('farm_plots').select('id')
   assert.equal(farmReadError, null)
@@ -123,6 +132,9 @@ try {
   const anonymousFarm = await rawRpc('ensure_farm', {})
   assert.equal(anonymousFarm.status, 401)
   assert.equal(anonymousFarm.body?.code, '42501')
+  const anonymousFarmView = await rawRpc('get_my_farm', {})
+  assert.equal(anonymousFarmView.status, 401)
+  assert.equal(anonymousFarmView.body?.code, '42501')
 
   const startArgs = {
     p_plot_id: firstFarm.data[0].plot_id,
@@ -153,6 +165,21 @@ try {
   const session = starts.find(({ error }) => !error).data
   assert.equal(session.status, 'focusing')
   assert.equal(session.target_seconds, 600)
+  const growingFarmView = await userA.client.rpc('get_my_farm')
+  assert.equal(growingFarmView.error, null)
+  assert.deepEqual(
+    growingFarmView.data.find(({ plot_id }) => plot_id === session.plot_id),
+    {
+      plot_id: session.plot_id,
+      plot_index: firstFarm.data.find(({ plot_id }) => plot_id === session.plot_id).plot_index,
+      farm_status: 'growing',
+      session_id: session.session_id,
+      session_status: 'focusing',
+      crop_id: startArgs.p_crop_id,
+      crop_name: '새싹채소',
+      target_seconds: 600,
+    },
+  )
   const sessionArgs = { p_session_id: session.session_id }
   const otherPause = await userB.client.rpc('pause_focus', sessionArgs)
   assert.equal(otherPause.error?.details, 'SESSION_NOT_FOUND')
@@ -167,6 +194,10 @@ try {
   ])
   for (const pause of pauses) assert.equal(pause.error, null)
   assert.equal(pauses[0].data.paused_at, pauses[1].data.paused_at)
+  const pausedFarmView = await userA.client.rpc('get_my_farm')
+  assert.equal(pausedFarmView.error, null)
+  assert.equal(pausedFarmView.data.find(({ session_id }) => session_id === session.session_id).farm_status, 'growing')
+  assert.equal(pausedFarmView.data.find(({ session_id }) => session_id === session.session_id).session_status, 'paused')
   const restoredClient = createTestClient()
   clients.push(restoredClient)
   const signIn = await restoredClient.auth.signInWithPassword({ email: userA.user.email, password })
@@ -332,7 +363,7 @@ try {
   assert.equal(oldTokenRequest.status, 200, 'Existing access JWT remains valid until expiry after signout')
 
   console.log(
-    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, focus session restore and transitions, crops, error objects/status, JWT, signout)',
+    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, farm read projection, focus session restore and transitions, crops, error objects/status, JWT, signout)',
   )
 } finally {
   await Promise.all(clients.map((client) => client.auth.signOut().catch(() => {})))
