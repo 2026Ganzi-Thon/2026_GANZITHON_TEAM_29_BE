@@ -6,11 +6,13 @@
 - [x] CLI 3.1.0 인증 및 IPv4 Session Pooler
 - [x] 원격 migration·업무 객체 0개
 - [x] 로컬 DB reset
-- [x] pgTAP 103개
+- [x] 현재 `develop` pgTAP 103개
 - [x] Auth/RPC 통합 테스트
 - [x] DB lint 오류 없음
 - [x] npm audit 취약점 0개
-- [x] dry-run 후보 3개
+- [x] 현재 `develop` dry-run 후보 3개
+- [x] PR #7 + PR #8 임시 통합 pgTAP 167개와 통합 테스트
+- [ ] PR #7/#8 병합 후 최신 `develop`에서 마이그레이션 목록과 167개 이상 테스트 재검증
 - [ ] 집중 세션 완료·만료 상태 확정 문제 해결
 - [ ] 같은 SHA의 GitHub Actions 성공
 - [ ] A/B 리뷰와 실제 배포 승인
@@ -21,6 +23,7 @@
 ## 배포 전
 
 - [ ] 승인된 \`develop\` SHA 또는 릴리스 후보와 배포 SHA 일치
+- [ ] 해당 SHA의 로컬 마이그레이션 파일 목록을 새로 산출하고 이전 개수를 재사용하지 않음
 - [ ] 프로젝트 이름·Ref를 두 명이 대조하고 GoldenLook이 아님을 확인
 - [ ] 원격 migration list와 업무 객체 재확인
 - [ ] dry-run 목록과 승인 목록의 순서 일치
@@ -36,7 +39,8 @@
 - [ ] reset, seed, repair와 원격 초기화 미실행
 - [ ] 적용 version과 출력 보존
 - [ ] 가입 직후 세션 발급, nickname 프로필 생성
-- [ ] A RPC 3개와 작물 6종
+- [ ] A RPC 5개와 작물 6종
+- [ ] `get_focus_history()`의 `harvest_count = null`, `capabilities.harvest_count = false` 확인
 - [ ] \`ensure_farm()\` 멱등성과 밭 12개
 - [ ] 타 사용자 접근 거부와 RLS 격리
 - [ ] 집중 시작·조회·일시정지·재개

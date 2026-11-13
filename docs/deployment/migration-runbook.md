@@ -6,13 +6,20 @@ Supabase CLI 3.1.0 기준입니다. CLI v3는 로컬이 기본 대상이므로 �
 
 대상은 \`focus-farm-staging (klanbfvywwudprunaqdf)\`, Seoul, PostgreSQL 17.11입니다. 2026-11-13 기준 원격 이력과 업무 객체는 0개입니다.
 
-현재 dry-run 후보는 다음 세 개입니다.
+현재 `origin/develop`의 dry-run 후보 스냅샷은 다음 세 개입니다.
 
 1. \`20261110152140_a_foundation.sql\`
 2. \`20261113012151_b_farm_foundation.sql\`
 3. \`20261113020509_b_focus_sessions.sql\`
 
 세 번째 마이그레이션은 목표 도달/일시정지 만료 후 상태가 확정되지 않아 새 집중이 막힐 수 있습니다. 후속 수정과 팀 승인 전까지 **배포 보류**입니다. 현재 HEAD에서 표준 \`db push\`로 앞의 두 파일만 선택 적용하지 않습니다.
+
+이 목록은 최종 배포 목록이 아닙니다. PR #7과 PR #8에는 각각 다음 A 마이그레이션이 있으며, 실제 후보에는 `develop` 병합 후에만 포함합니다.
+
+- `20261113143508_a_farm_read_model.sql` — `get_my_farm()`
+- `20261113145323_a_focus_history.sql` — `get_focus_history(p_period)`
+
+두 PR의 임시 통합 검증은 pgTAP 167개, Auth/RPC 통합, History 통합, DB lint를 통과했지만 병합·원격 배포 증거는 아닙니다. 각 기능 PR 병합과 B 후속 마이그레이션 완료 후 `origin/develop`의 실제 파일 목록, CI SHA와 원격 dry-run을 다시 기록합니다. 마이그레이션 개수를 운영 문서에 고정값으로 가정하지 않습니다.
 
 ## 금지 사항
 
@@ -45,6 +52,7 @@ npm run db:start
 npm run db:reset
 npm run db:test
 npm run test:integration
+npm run test:history
 npm run db:lint
 npx supabase db advisors --type all --level info --fail-on error
 npm audit
@@ -72,7 +80,7 @@ Staging 데이터와 복구 담당자를 확인하고 보류 사유가 해소된
 npx supabase db push --skip-vault --remote
 ~~~
 
-적용 후 migration list, Auth 프로필 트리거, 작물 6종, \`ensure_farm()\`, 집중 RPC, RLS 격리, DB lint/advisors와 로그를 확인합니다. 원격 Auth 사용자 생성은 별도 승인 대상입니다.
+적용 후 migration list, Auth 프로필 트리거, 작물 6종, A RPC 5개, \`ensure_farm()\`, 집중 RPC, RLS 격리, DB lint/advisors와 로그를 확인합니다. `get_focus_history()`의 수확 집계는 B 수확 스키마 전까지 `null` 계약임을 함께 확인합니다. 원격 Auth 사용자 생성은 별도 승인 대상입니다.
 
 ## 6. 실패와 복구
 
