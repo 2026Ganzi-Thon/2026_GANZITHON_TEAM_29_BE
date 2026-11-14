@@ -11,12 +11,18 @@
    - `PT401`/`PT404`/`22023` PostgREST 오류 매핑
 
 2. `20261113012151_b_farm_foundation.sql`
-   - `farm_plots`, `ensure_farm()`
+   - `farm_plots`, 복합 소유권 제약, `ensure_farm()`
 3. `20261113020509_b_focus_sessions.sql`
-   - `focus_sessions`, 집중 시작/조회/일시정지/재개 RPC
-4. `20261113145323_a_focus_history.sql`
+   - `focus_sessions`, 집중 시작·조회·일시정지·재개 RPC
+4. `20261113143508_a_farm_read_model.sql`
+   - 조회 전용 `get_my_farm()`
+   - 기존 RLS를 적용하는 `SECURITY INVOKER`
+   - 밭 생성·세션 상태 변경 없음; `seed_saved`, `harvested`는 비점유 기록
+5. `20261113145323_a_focus_history.sql`
    - `get_focus_history(p_period)`
    - 집중 시간·씨앗 일별 집계; 수확 집계는 B `harvests` 병합 후 후속 마이그레이션
+
+다섯 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. `get_my_farm()`과 `get_focus_history()`는 B의 상태를 변경하지 않습니다. 집중 세션은 목표 도달·24시간 일시정지 만료 후 DB 상태 확정이 아직 없으므로 후속 수정 전에는 Staging에 배포하지 않습니다.
 
 ## 생성 규칙
 

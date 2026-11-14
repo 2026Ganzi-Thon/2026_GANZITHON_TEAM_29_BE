@@ -1,6 +1,6 @@
 # A 담당 프론트엔드 연동 가이드
 
-이 문서는 Supabase JS를 사용하는 별도 프론트엔드 저장소의 연동 계약입니다. PR #7의 `get_my_farm()`과 PR #8의 `get_focus_history()`는 각각 `develop` 병합과 대상 환경 배포 후 호출할 수 있습니다. S 화면 원본은 백엔드 저장소에서 확인하지 못했으므로 제공된 화면 번호만 매핑하며 UI 전용 필드를 DB 계약으로 추가하지 않습니다.
+이 문서는 Supabase JS를 사용하는 별도 프론트엔드 저장소의 연동 계약입니다. `get_my_farm()`과 `get_focus_history()`는 `develop` 병합과 대상 환경 배포 후 호출할 수 있습니다. S 화면 원본은 백엔드 저장소에서 확인하지 못했으므로 제공된 화면 번호만 매핑하며 UI 전용 필드를 DB 계약으로 추가하지 않습니다.
 
 ## 클라이언트 설정과 키 구분
 
@@ -157,8 +157,8 @@ const { data, error } = await supabase.rpc('get_my_farm')
 
 - `plot_index` 오름차순
 - 밭이 없으면 `[]`; 조회가 밭을 생성하지 않음
-- `focusing | paused → growing`, `ripe → ripe`, `harvested → harvested`
-- `seed_saved`는 밭을 점유하지 않아 `empty`
+- `focusing | paused → growing`, `ripe → ripe`
+- `seed_saved | harvested`는 기록으로 남지만 밭을 점유하지 않아 `empty`; 세션·작물·목표 시간 필드는 `null`
 - 실시간 `focused_seconds`와 `remaining_seconds`는 B의 `get_active_focus()` 사용
 - 저장된 세션 상태만 투영하며 완료·만료 상태를 확정하지 않음
 

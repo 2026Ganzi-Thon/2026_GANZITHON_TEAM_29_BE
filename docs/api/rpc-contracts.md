@@ -36,7 +36,7 @@ await supabase.auth.getSession()
 await supabase.auth.signOut()
 ```
 
-`nickname`은 표시 정보로만 사용하고 소유권 판단에 사용하지 않습니다. 이메일 확인, redirect URL, Auth 상세 오류 매핑은 운영 프로젝트 확정 후 A/프론트엔드가 결정합니다.
+`nickname`은 표시 정보로만 사용하고 소유권 판단에 사용하지 않습니다. 신규 가입을 허용하고 Confirm email은 OFF이며 이메일 인증 링크를 사용하지 않습니다. Staging Dashboard 저장은 완료됐지만 원격 회원가입 동작은 아직 실측하지 않았습니다. Redirect URL과 Auth 상세 오류 매핑은 A/프론트엔드가 별도로 확정합니다.
 
 ## 오류 계약
 
@@ -108,11 +108,11 @@ const { data, error } = await supabase.rpc('complete_onboarding')
 const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 ```
 
-## 후속 A RPC
+## A 조회 RPC
 
 | 함수 | 입력 | 상태 |
 |---|---|---|
-| `get_my_farm()` | 없음 | PR #7 구현·검증 완료, 병합 대기 |
+| `get_my_farm()` | 없음 | 구현·검증 완료 |
 | `get_focus_history(p_period)` | `today | week | all` | 집중/씨앗 집계 구현; 수확 집계 PARTIAL |
 
 권장안·예시·결정 대기 항목은 [조회 모델 설계](read-model-design.md)에 기록합니다.
@@ -126,6 +126,18 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - 집계 상태: `seed_saved | ripe | harvested`; 활성 `focusing | paused` 제외
 - 수확 스키마 병합 전 `harvest_count = null`, `capabilities.harvest_count = false`
 - 잘못된 기간은 `22023 / INVALID_INPUT`
+
+### `get_my_farm()`
+
+- 반환: `[{ plot_id, plot_index, farm_status, session_id, session_status, crop_id, crop_name, target_seconds }]`
+- `plot_index ASC`; 밭이 없으면 빈 배열
+- `focusing | paused → growing`, `ripe → ripe`, `seed_saved | harvested → empty`
+- `empty`의 세션·작물·목표 시간 필드는 `NULL`
+- 밭 생성, 세션 상태 확정, 실시간 타이머 계산을 하지 않음
+- 실시간 `focused_seconds`, `remaining_seconds`는 `get_active_focus()` 사용
+- 자동 수확 알림은 스키마 확정 후 후속 계약으로 추가
+- 현재 B 점유 인덱스에는 `harvested`가 포함되어 있어 실제 재심기는 B 인덱스·시작 RPC 변경 후 검증
+- 자동 수확 알림 응답은 [별도 계약 제안](auto-harvest-notice-proposal.md)에서 비교하며 합의 전 반환 타입을 변경하지 않음
 
 ## B 담당 RPC
 
@@ -142,7 +154,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 ## 상태
 
 - 세션: `focusing`, `paused`, `seed_saved`, `ripe`, `harvested`
-- 농장 표시: `empty`, `growing`, `ripe`, `harvested`
+- 농장 표시: `empty`, `growing`, `ripe`
 
 세션 상태 전이, 실패 롤백, 자동 수확 경계는 B/A 공동 결정 전까지 `TBD`입니다.
 

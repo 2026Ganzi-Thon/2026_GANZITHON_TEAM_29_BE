@@ -1,24 +1,29 @@
 # 농장·집중 기록 조회 설계
 
-이 문서는 B 쓰기 모델 병합 전의 후속 설계입니다. SQL, 정확한 반환 타입, 자동 수확 알림 필드는 확정하지 않습니다. Figma v1.2 원본은 이 저장소에서 확인할 수 없어, 명시된 `today | week | all` 요구만 반영했습니다.
+현재 \`develop\`의 \`farm_plots\`, \`focus_sessions\`, \`crops\`를 기준으로 A 조회 모델을 정의합니다. S02/S03 원본 화면 명세와 자동 수확 알림 스키마는 저장소에서 확인할 수 없어 의존 필드를 반환하지 않습니다.
 
-## `get_my_farm()`
+## \`get_my_farm()\`
 
-### 확정 동작
+### 확정 동작과 보안
 
-- 인증 사용자의 밭만 `plot_index ASC`로 조회
-- 조회 전용: 밭 생성은 `ensure_farm()` 담당
-- `focusing | paused` → `growing`
-- `seed_saved` → `empty`
-- `ripe` → `ripe`
-- `harvested` → `harvested`
-- 밭이 있지만 세션이 없으면 `empty`
-- 사용자 ID는 입력받지 않고 `auth.uid()`로 소유권 확인
-- 밭이 0개이면 빈 배열 반환; 조회 중 `ensure_farm()` 호출 금지
+- 인증 사용자의 밭만 \`plot_index ASC\`로 조회
+- 조회 전용이며 밭 생성은 B의 \`ensure_farm()\` 담당
+- \`focusing | paused → growing\`
+- \`seed_saved → empty\`
+- \`ripe → ripe\`
+- \`harvested → empty\`
+- 점유 세션이 없으면 \`empty\`
+- 밭이 0개이면 빈 배열을 반환하고 밭을 생성하지 않음
+- 사용자 ID 입력 없이 \`auth.uid()\`로 소유권 확인
+- \`STABLE SECURITY INVOKER\`와 기존 RLS 사용
+- 테이블 쓰기와 세션 상태 확정 없음
+- \`anon\`, \`service_role\` 실행 권한 없음
 
-### 반환 권장안—미확정
+### 반환 계약
 
-```json
+Supabase RPC는 다음 행 배열을 JSON으로 반환합니다.
+
+~~~json
 [
   {
     "plot_id": "uuid",
@@ -28,31 +33,35 @@
     "session_status": "paused",
     "crop_id": "uuid",
     "crop_name": "당근",
-    "target_seconds": 1200,
-    "focused_seconds": 430,
-    "pending_auto_harvest_id": null
+    "target_seconds": 1200
   }
 ]
-```
+~~~
 
-`empty`인 밭의 세션/작물/시간 필드는 `NULL` 권장입니다. `pending_auto_harvest_id`의 실제 이름과 원본 테이블은 B 알림 스키마 후 확정합니다.
+\`empty\` 밭의 세션·작물·목표 시간 필드는 \`NULL\`입니다. \`target_seconds\`는 세션 시작 당시 복사된 값입니다.
 
-### 활성 세션 포함 위치
+### JOIN과 책임 경계
 
-| 안 | 장점 | 단점 |
-|---|---|---|
-| `get_my_farm()`에 표시용 세션 포함 | 농장 화면 1회 호출, 밭과 세션 스냅샷 일관성 | 타이머 갱신 응답이 커짐 |
-| `get_active_focus()`에만 포함 | 집중 상태 책임 분리, 타이머 갱신 단순 | 농장 화면이 2회 호출·합치 필요 |
+- \`farm_plots\`를 기준으로 현재 밭을 점유하는 \`focusing\`, \`paused\`, \`ripe\` 세션만 LEFT JOIN
+- 복합 소유권 \`(user_id, plot_id)\`를 함께 검사
+- \`crops\`에서는 표시용 이름만 조회
+- \`seed_saved\`, \`harvested\`는 기록으로 남지만 밭을 점유하지 않으므로 JOIN에서 제외
+- 실시간 \`focused_seconds\`, \`remaining_seconds\`는 \`get_active_focus()\`를 권위 응답으로 사용
+- B가 아직 자동 \`ripe\`/\`seed_saved\` 상태 확정을 구현하지 않았으므로 DB에 저장된 상태만 투영
+- 자동 수확 알림 ID는 원본 테이블과 ack 규칙 확정 후 별도 후속 마이그레이션으로 추가
 
-권장은 `get_my_farm()`에 렌더링용 `session_id`, `session_status`, 확정 시간만 포함하고, 제어·실시간 타이머의 권위 응답은 `get_active_focus()`로 두는 방식입니다. 최종 결정은 A/B/프론트엔드 담당입니다.
+### 테스트
 
-### 테스트 계획
+- 밭 0개 조회가 빈 배열이며 생성 부작용 없음
+- 초기 12칸, 정렬과 빈 밭
+- focusing/paused/ripe/harvested/seed_saved 상태 투영과 비점유 행의 NULL 필드
+- 여러 과거 harvested 세션이 있어도 밭당 한 행
+- 작물 ID·이름과 세션 목표 시간
+- 다른 사용자 격리와 익명 차단
+- JOIN으로 밭 중복 없음
+- 함수가 B 세션 상태를 변경하지 않음
 
-- 밭 0개, 초기 빈 밭, 각 세션 상태 프로젝션
-- `plot_index` 순서와 확장 밭
-- 다른 사용자의 밭/세션 노출 차단
-- 세션·수확 JOIN으로 밭이 중복 반환되지 않음
-- 보류 알림 있음/없음
+현재 B의 `focus_sessions_one_occupant` 인덱스에는 `harvested`가 포함되어 있으므로 실제 재심기는 아직 B 변경에 의존합니다. 이 조회 계약은 수확 완료 밭을 비어 보이게 할 뿐, B의 시작 RPC나 점유 제약을 우회하지 않습니다.
 
 ## `get_focus_history(p_period)` — 구현됨, 수확 집계 PARTIAL
 
