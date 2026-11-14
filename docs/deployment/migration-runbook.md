@@ -18,6 +18,8 @@ Supabase CLI 3.1.0 기준입니다. CLI v3는 로컬이 기본 대상이므로 �
 
 - `20261113143508_a_farm_read_model.sql` — `get_my_farm()`
 - `20261113145323_a_focus_history.sql` — `get_focus_history(p_period)`
+- `20261114054245_b_finalize_focus.sql` — 완료·만료 세션 자동 확정
+- `20261114070324_b_stop_focus.sql` — 중도 종료 미리보기·확정·취소
 
 두 PR의 임시 통합 검증은 pgTAP 167개, Auth/RPC 통합, History 통합, DB lint를 통과했지만 병합·원격 배포 증거는 아닙니다. 각 기능 PR 병합과 B 후속 마이그레이션 완료 후 `origin/develop`의 실제 파일 목록, CI SHA와 원격 dry-run을 다시 기록합니다. 마이그레이션 개수를 운영 문서에 고정값으로 가정하지 않습니다.
 
