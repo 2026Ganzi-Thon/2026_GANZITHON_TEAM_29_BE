@@ -221,6 +221,70 @@ try {
   assert.equal(anonymousFinalize.status, 401)
   assert.equal(anonymousFinalize.body?.code, '42501')
 
+  const activeId = activeRows.data[0].id
+  const previewArgs = { p_session_id: activeId }
+  // Each transition and preview may win the session lock in either order.
+  for (const transition of ['pause_focus', 'resume_focus']) {
+    const [racingPreview, changed] = await Promise.all([
+      userA.client.rpc('preview_stop_focus', previewArgs),
+      restoredClient.rpc(transition, previewArgs),
+    ])
+    assert.equal(racingPreview.error, null)
+    assert.equal(changed.error, null)
+    const token = racingPreview.data.stop_token
+    const current = await userA.client.from('focus_sessions').select('status').eq('id', activeId).single()
+    assert.equal(current.error, null)
+    assert.equal(current.data.status, transition === 'pause_focus' ? 'paused' : 'focusing')
+    const cleared = await userA.client.rpc('cancel_stop_focus', { p_stop_token: token })
+    assert.equal(cleared.error, null)
+    assert.equal(cleared.data.cancelled, true)
+  }
+
+  const preview = await userA.client.rpc('preview_stop_focus', previewArgs)
+  assert.equal(preview.error, null)
+  const cancelled = await userA.client.rpc('cancel_stop_focus', { p_stop_token: preview.data.stop_token })
+  assert.equal(cancelled.error, null)
+  assert.equal(cancelled.data.cancelled, true)
+  const afterCancel = await userA.client.rpc('get_active_focus', undefined, { get: true })
+  assert.equal(afterCancel.error, null)
+  assert.equal(afterCancel.data.session.status, 'focusing')
+
+  const pausedForStop = await userA.client.rpc('pause_focus', previewArgs)
+  assert.equal(pausedForStop.error, null)
+  const pausedPreview = await userA.client.rpc('preview_stop_focus', previewArgs)
+  assert.equal(pausedPreview.error, null)
+  const resumedAfterPreview = await userA.client.rpc('resume_focus', previewArgs)
+  assert.equal(resumedAfterPreview.error, null)
+  const invalidated = await userA.client.rpc('confirm_stop_focus', { p_stop_token: pausedPreview.data.stop_token })
+  assert.equal(invalidated.error?.details, 'INVALID_STATE')
+
+  const stopPreview = await userA.client.rpc('preview_stop_focus', previewArgs)
+  assert.equal(stopPreview.error, null)
+  assert.equal(stopPreview.data.focus_minutes, Math.floor(stopPreview.data.focused_seconds / 60))
+  const stopArgs = { p_stop_token: stopPreview.data.stop_token }
+  const foreignStop = await userB.client.rpc('confirm_stop_focus', stopArgs)
+  assert.equal(foreignStop.error?.details, 'STOP_TOKEN_NOT_FOUND')
+  const foreignCancel = await userB.client.rpc('cancel_stop_focus', stopArgs)
+  assert.equal(foreignCancel.error?.details, 'STOP_TOKEN_NOT_FOUND')
+  runLocalSql(`update public.focus_sessions set started_at = started_at - interval '1 hour' where id = '${activeId}'`)
+  const [stop, retryStop, competingFinalize] = await Promise.all([
+    userA.client.rpc('confirm_stop_focus', stopArgs),
+    restoredClient.rpc('confirm_stop_focus', stopArgs),
+    userA.client.rpc('finalize_my_focus'),
+  ])
+  assert.equal(stop.error, null)
+  assert.equal(retryStop.error, null)
+  assert.equal(competingFinalize.error, null)
+  assert.equal(competingFinalize.data, null)
+  assert.deepEqual(retryStop.data, stop.data)
+  assert.deepEqual(stop.data, {
+    session_id: activeId, status: 'seed_saved', result: 'seed',
+    focused_seconds: stopPreview.data.focused_seconds, plot_status: 'empty',
+  })
+  const stopped = await userA.client.from('focus_sessions').select('status, focused_seconds').eq('id', activeId).single()
+  assert.equal(stopped.error, null)
+  assert.deepEqual(stopped.data, { status: 'seed_saved', focused_seconds: stop.data.focused_seconds })
+
   const profileCases = [
     [userA, '테스트🌱농부'],
     [userB, '농부'],
@@ -366,7 +430,7 @@ try {
   assert.equal(oldTokenRequest.status, 200, 'Existing access JWT remains valid until expiry after signout')
 
   console.log(
-    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, focus session restore, transitions and finalization, crops, error objects/status, JWT, signout)',
+    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, focus session restore, transitions, finalization and stop preview, crops, error objects/status, JWT, signout)',
   )
 } finally {
   await Promise.all(clients.map((client) => client.auth.signOut().catch(() => {})))

@@ -165,3 +165,21 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - `ripe`는 밭을 계속 점유하고 `seed_saved`는 밭을 비웁니다. 시작 요청이 오류로 끝나면 그 요청의 상태 정리도 롤백됩니다.
 - **재접속 연동 제안** · 인증 후 `supabase.rpc('finalize_my_focus')`를 POST로 호출하고 성공하면 `get_active_focus()`와 농장 조회를 수행합니다. 인자는 없고, 이번 호출에서 확정된 `{ session_id, status, focused_seconds }` 또는 `null`을 반환합니다. 이름과 앱 호출 위치는 A·프론트엔드 검토 대상입니다. 이 호출의 커밋은 후속 조회나 시작과 독립적입니다.
 - `show_overwork_notice`는 세션이 없으면 `false`입니다. 활성 세션에도 현재는 임시로 `false`를 반환하며, 표시 조건과 표시 이력 정책은 결정 대기입니다.
+
+### 중도 종료 (Issue #11)
+
+세 RPC 모두 인증된 POST 호출입니다. 입력과 응답은 다음과 같습니다.
+
+| RPC | JSON 요청 | JSON 응답 필드 |
+| --- | --- | --- |
+| `preview_stop_focus` | `{ "p_session_id": "<UUID>" }` | `session_id, stop_token, previewed_at, expires_at, focused_seconds, focus_minutes, progress_percent, result: "seed"` |
+| `confirm_stop_focus` | `{ "p_stop_token": "<token>" }` | `session_id, status: "seed_saved", result: "seed", focused_seconds, plot_status: "empty"` |
+| `cancel_stop_focus` | `{ "p_stop_token": "<token>" }` | `session_id, cancelled` |
+
+미리보기는 세션 잠금을 획득한 뒤 서버 시각으로 계산합니다. 목표 미달인 진행 중·일시정지 세션만 대상으로 하며 분과 퍼센트는 내림합니다. 토큰은 5분 유효하고 새 미리보기는 이전 미리보기를 무효화합니다. 확인 화면에서는 스냅샷을 표시합니다. 집중 중에는 서버 타이머가 계속 진행하고 일시정지는 그대로입니다.
+
+유효한 미리보기는 자동 확정을 보류합니다. 확인은 스냅샷의 집중 초를 기록하고 토큰을 소비하며 밭을 비웁니다. 같은 소유자의 소비 토큰 재시도는 같은 성공 응답을 반환합니다. `plot_status`는 확정 당시 결과이며 재시도 시 현재 밭 상태는 농장 조회에서 확인합니다. 실제 일시정지·재개 전이는 미리보기를 무효화합니다.
+
+'계속 키우기'나 창 닫기에는 취소 RPC를 호출합니다. `cancelled: true`는 미소비 토큰이 호출 후 취소 상태임을, `false`는 이미 확정됐음을 뜻합니다. 같은 토큰을 반복 취소해도 `true`를 반환하며 최초 취소 시각을 유지합니다. 재접속 취소를 위해 앱은 토큰을 해당 사용자 세션의 보안 저장소에 임시 보관합니다. 인증 복원 후 남은 토큰을 취소하고 `finalize_my_focus()`를 호출한 다음 농장과 활성 세션을 조회합니다. 토큰을 잃으면 서버의 5분 TTL이 지나야 보류가 풀립니다. 토큰 만료 시 창을 닫고 `finalize_my_focus()`를 호출한 뒤 재조회합니다. 조회는 읽기 전용입니다.
+
+오류는 기존 Focus 응답 형식을 따릅니다. 잘못된 입력은 `PT400 / INVALID_INPUT`, 없는 세션 또는 타인 세션은 `PT404 / SESSION_NOT_FOUND`, 알 수 없거나 타인 소유인 토큰은 `PT404 / STOP_TOKEN_NOT_FOUND`입니다. 미소비 토큰 만료는 `PT409 / STOP_TOKEN_EXPIRED`, 취소·교체·부적합한 세션 상태는 `PT409 / INVALID_STATE`입니다. 익명 역할은 함수 실행 권한이 없습니다.
