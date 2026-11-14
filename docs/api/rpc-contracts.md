@@ -136,7 +136,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - 밭 생성, 세션 상태 확정, 실시간 타이머 계산을 하지 않음
 - 실시간 `focused_seconds`, `remaining_seconds`는 `get_active_focus()` 사용
 - 자동 수확 알림은 스키마 확정 후 후속 계약으로 추가
-- 현재 B 점유 인덱스에는 `harvested`가 포함되어 있어 실제 재심기는 B 인덱스·시작 RPC 변경 후 검증
+- `20261114054245_b_finalize_focus.sql`부터 점유 인덱스와 `start_focus()`는 `harvested`를 제외하며, 수확 기록을 보존한 재심기를 허용
 - 자동 수확 알림 응답은 [별도 계약 제안](auto-harvest-notice-proposal.md)에서 비교하며 합의 전 반환 타입을 변경하지 않음
 
 ## B 담당 RPC

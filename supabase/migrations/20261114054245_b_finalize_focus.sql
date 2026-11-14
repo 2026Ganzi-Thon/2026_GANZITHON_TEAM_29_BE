@@ -1,3 +1,8 @@
+drop index public.focus_sessions_one_occupant;
+create unique index focus_sessions_one_occupant
+on public.focus_sessions (user_id, plot_id)
+where status in ('focusing', 'paused', 'ripe');
+
 create function private.finalize_focus(p_user_id uuid)
 returns jsonb
 language plpgsql
@@ -102,7 +107,7 @@ begin
 
   if exists (
     select 1 from public.focus_sessions s where s.user_id = v_user and s.plot_id = p_plot_id
-    and s.status in ('focusing', 'paused', 'ripe', 'harvested')
+    and s.status in ('focusing', 'paused', 'ripe')
   ) then
     raise sqlstate 'PT409' using message = '이미 작물이 있는 밭입니다.', detail = 'PLOT_OCCUPIED';
   end if;
@@ -122,7 +127,7 @@ begin
     if v_constraint = 'focus_sessions_one_occupant' or (
       v_constraint = 'focus_sessions_one_active_user' and exists (
         select 1 from public.focus_sessions s where s.user_id = v_user and s.plot_id = p_plot_id
-        and s.status in ('focusing', 'paused', 'ripe', 'harvested')
+        and s.status in ('focusing', 'paused', 'ripe')
       )
     ) then
       raise sqlstate 'PT409' using message = '이미 작물이 있는 밭입니다.', detail = 'PLOT_OCCUPIED';

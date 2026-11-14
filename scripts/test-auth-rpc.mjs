@@ -270,6 +270,17 @@ try {
       target_seconds: null,
     },
   )
+  runLocalSql(`update public.focus_sessions
+    set status = 'seed_saved', paused_at = null
+    where user_id = '${userA.user.id}' and status in ('focusing', 'paused')`)
+  const replant = await userA.client.rpc('start_focus', { ...startArgs, p_plot_id: session.plot_id })
+  assert.equal(replant.error, null)
+  const replantedFarmView = await userA.client.rpc('get_my_farm')
+  assert.equal(replantedFarmView.error, null)
+  assert.equal(
+    replantedFarmView.data.find(({ plot_id }) => plot_id === session.plot_id).session_id,
+    replant.data.session_id,
+  )
 
   const profileCases = [
     [userA, '테스트🌱농부'],

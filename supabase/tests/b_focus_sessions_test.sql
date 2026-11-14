@@ -1,5 +1,5 @@
 begin;
-select plan(27);
+select plan(30);
 insert into auth.users (id,email) values ('a4000000-0000-4000-8000-000000000001','focus-sql@test.local');
 set local request.jwt.claim.sub = 'a4000000-0000-4000-8000-000000000001';
 set local role authenticated;
@@ -81,5 +81,25 @@ where status = 'focusing';
 set local role authenticated;
 select is(public.finalize_my_focus()->>'status', 'ripe', 'target reached takes precedence over expired pause');
 select is((select count(*) from public.focus_sessions where status = 'ripe'), 2::bigint, 'both ripe plots persist');
+reset role;
+update public.focus_sessions
+set status = 'harvested'
+where status = 'ripe' and plot_id = (select plot_id from focus_plots where plot_index = 1);
+set local role authenticated;
+select is(
+  (select public.start_focus(plot_id, '10000000-0000-4000-8000-000000000001')->>'status'
+   from focus_plots where plot_index = 1), 'focusing', 'harvested plot is reusable'
+);
+select is(
+  (select count(*) from public.focus_sessions
+   where plot_id = (select plot_id from focus_plots where plot_index = 1)),
+  2::bigint,
+  'harvested history remains after replanting'
+);
+select is(
+  (select farm_status from public.get_my_farm() where plot_index = 1),
+  'growing'::text,
+  'farm read projects the new occupant instead of harvested history'
+);
 select * from finish();
 rollback;
