@@ -21,8 +21,14 @@
 5. `20261113145323_a_focus_history.sql`
    - `get_focus_history(p_period)`
    - 집중 시간·씨앗 일별 집계; 수확 집계는 B `harvests` 병합 후 후속 마이그레이션
+6. `20261114054245_b_finalize_focus.sql`
+   - 목표 달성·24시간 일시정지 만료 자동 확정과 `finalize_my_focus()`
+   - `harvested`를 점유에서 제외한 인덱스·`start_focus()` 계약
+7. `20261114070324_b_stop_focus.sql`
+   - 중도 종료 미리보기·확정·취소 RPC와 해시 토큰 저장소
+   - 5분 TTL, 멱등 확인, 상태 전이 시 미리보기 무효화
 
-다섯 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. `get_my_farm()`과 `get_focus_history()`는 B의 상태를 변경하지 않습니다. 집중 세션은 목표 도달·24시간 일시정지 만료 후 DB 상태 확정이 아직 없으므로 후속 수정 전에는 Staging에 배포하지 않습니다.
+일곱 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. `get_my_farm()`과 `get_focus_history()`는 B의 상태를 변경하지 않습니다. 수확·자동 수확·Cron은 후속 B 마이그레이션 전까지 Staging 배포 범위에서 제외합니다.
 
 ## 생성 규칙
 
