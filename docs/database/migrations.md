@@ -17,7 +17,7 @@
 4. `20261113143508_a_farm_read_model.sql`
    - 조회 전용 `get_my_farm()`
    - 기존 RLS를 적용하는 `SECURITY INVOKER`
-   - 밭 생성·세션 상태 변경 없음
+   - 밭 생성·세션 상태 변경 없음; `seed_saved`, `harvested`는 비점유 기록
 
 네 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. `get_my_farm()`은 DB에 저장된 세션 상태만 투영하고 B의 상태를 변경하지 않습니다. 집중 세션은 목표 도달·24시간 일시정지 만료 후 DB 상태 확정이 아직 없으므로 후속 수정 전에는 Staging에 배포하지 않습니다.
 

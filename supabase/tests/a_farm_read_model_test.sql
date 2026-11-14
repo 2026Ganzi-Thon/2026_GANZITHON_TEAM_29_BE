@@ -1,5 +1,5 @@
 begin;
-select plan(25);
+select plan(29);
 
 select has_function('public', 'get_my_farm', array[]::text[], 'get_my_farm exists');
 select ok(has_function_privilege('authenticated', 'public.get_my_farm()', 'execute'), 'authenticated can read own farm');
@@ -59,7 +59,7 @@ select results_eq(
   $$values
     (1, 'growing'::text),
     (2, 'ripe'::text),
-    (3, 'harvested'::text),
+    (3, 'empty'::text),
     (4, 'empty'::text),
     (5, 'empty'::text)$$,
   'session states project to farm display states'
@@ -79,6 +79,11 @@ select ok(
    from public.get_my_farm() where plot_index = 4),
   'seed_saved does not occupy a plot projection'
 );
+select ok(
+  (select session_id is null and session_status is null and crop_id is null and crop_name is null and target_seconds is null
+   from public.get_my_farm() where plot_index = 3),
+  'harvested does not occupy a plot projection'
+);
 select is((select count(*) from public.get_my_farm()), 12::bigint, 'one row is returned per plot');
 select is((select count(distinct plot_id) from public.get_my_farm()), 12::bigint, 'joins do not duplicate plots');
 
@@ -94,7 +99,36 @@ select results_eq(
   'paused sessions remain growing'
 );
 select is((select farm_status from public.get_my_farm() where plot_index = 2), 'ripe'::text, 'ripe state remains read only');
-select is((select farm_status from public.get_my_farm() where plot_index = 3), 'harvested'::text, 'harvested state remains read only');
+select is((select farm_status from public.get_my_farm() where plot_index = 3), 'empty'::text, 'harvested state projects as empty');
+reset role;
+select is(
+  (select status from public.focus_sessions where id = 'a5100000-0000-4000-8000-000000000003'),
+  'harvested'::text,
+  'farm read does not mutate harvested history'
+);
+
+-- Future-compatible read fixture: B still owns removal of harvested from the occupant index.
+drop index public.focus_sessions_one_occupant;
+insert into public.focus_sessions (
+  id, user_id, plot_id, crop_id, status, started_at, target_seconds, focused_seconds, record_date
+)
+values (
+  'a5100000-0000-4000-8000-000000000005', 'a5000000-0000-4000-8000-000000000001',
+  (select plot_id from farm_a where plot_index = 3), '10000000-0000-4000-8000-000000000003',
+  'harvested', statement_timestamp(), 1800, 1800, current_date - 1
+);
+set local role authenticated;
+set local request.jwt.claim.sub = 'a5000000-0000-4000-8000-000000000001';
+select is(
+  (select count(*) from public.focus_sessions where plot_id = (select plot_id from farm_a where plot_index = 3) and status = 'harvested'),
+  2::bigint,
+  'fixture retains multiple historical harvested sessions'
+);
+select is(
+  (select count(*) from public.get_my_farm() where plot_index = 3),
+  1::bigint,
+  'historical harvested sessions never duplicate a plot projection'
+);
 
 set local request.jwt.claim.sub = 'a5000000-0000-4000-8000-000000000002';
 select is((select count(*) from public.get_my_farm()), 0::bigint, 'other user plots are not exposed');

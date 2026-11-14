@@ -28,7 +28,6 @@ begin
     case
       when s.status in ('focusing', 'paused') then 'growing'
       when s.status = 'ripe' then 'ripe'
-      when s.status = 'harvested' then 'harvested'
       else 'empty'
     end,
     s.id,
@@ -40,7 +39,7 @@ begin
   left join public.focus_sessions as s
     on s.user_id = v_user_id
    and s.plot_id = p.id
-   and s.status in ('focusing', 'paused', 'ripe', 'harvested')
+   and s.status in ('focusing', 'paused', 'ripe')
   left join public.crops as c on c.id = s.crop_id
   where p.user_id = v_user_id
   order by p.plot_index;

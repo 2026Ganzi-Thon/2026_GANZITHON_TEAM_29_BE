@@ -11,7 +11,7 @@
 - \`focusing | paused → growing\`
 - \`seed_saved → empty\`
 - \`ripe → ripe\`
-- \`harvested → harvested\`
+- \`harvested → empty\`
 - 점유 세션이 없으면 \`empty\`
 - 밭이 0개이면 빈 배열을 반환하고 밭을 생성하지 않음
 - 사용자 ID 입력 없이 \`auth.uid()\`로 소유권 확인
@@ -42,10 +42,10 @@ Supabase RPC는 다음 행 배열을 JSON으로 반환합니다.
 
 ### JOIN과 책임 경계
 
-- \`farm_plots\`를 기준으로 현재 밭을 점유하는 \`focusing\`, \`paused\`, \`ripe\`, \`harvested\` 세션만 LEFT JOIN
+- \`farm_plots\`를 기준으로 현재 밭을 점유하는 \`focusing\`, \`paused\`, \`ripe\` 세션만 LEFT JOIN
 - 복합 소유권 \`(user_id, plot_id)\`를 함께 검사
 - \`crops\`에서는 표시용 이름만 조회
-- \`seed_saved\`는 기록으로 남지만 밭을 점유하지 않으므로 JOIN에서 제외
+- \`seed_saved\`, \`harvested\`는 기록으로 남지만 밭을 점유하지 않으므로 JOIN에서 제외
 - 실시간 \`focused_seconds\`, \`remaining_seconds\`는 \`get_active_focus()\`를 권위 응답으로 사용
 - B가 아직 자동 \`ripe\`/\`seed_saved\` 상태 확정을 구현하지 않았으므로 DB에 저장된 상태만 투영
 - 자동 수확 알림 ID는 원본 테이블과 ack 규칙 확정 후 별도 후속 마이그레이션으로 추가
@@ -54,11 +54,14 @@ Supabase RPC는 다음 행 배열을 JSON으로 반환합니다.
 
 - 밭 0개 조회가 빈 배열이며 생성 부작용 없음
 - 초기 12칸, 정렬과 빈 밭
-- focusing/paused/ripe/harvested/seed_saved 상태 투영
+- focusing/paused/ripe/harvested/seed_saved 상태 투영과 비점유 행의 NULL 필드
+- 여러 과거 harvested 세션이 있어도 밭당 한 행
 - 작물 ID·이름과 세션 목표 시간
 - 다른 사용자 격리와 익명 차단
 - JOIN으로 밭 중복 없음
 - 함수가 B 세션 상태를 변경하지 않음
+
+현재 B의 `focus_sessions_one_occupant` 인덱스에는 `harvested`가 포함되어 있으므로 실제 재심기는 아직 B 변경에 의존합니다. 이 조회 계약은 수확 완료 밭을 비어 보이게 할 뿐, B의 시작 RPC나 점유 제약을 우회하지 않습니다.
 
 ## \`get_focus_history(p_period)\`
 

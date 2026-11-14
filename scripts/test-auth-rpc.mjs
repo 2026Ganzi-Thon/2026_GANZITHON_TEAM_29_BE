@@ -218,6 +218,25 @@ try {
     assert.equal(resume.data.status, 'focusing')
   }
 
+  runLocalSql(`update public.focus_sessions
+    set status = 'harvested', focused_seconds = target_seconds
+    where id = '${session.session_id}'`)
+  const harvestedFarmView = await userA.client.rpc('get_my_farm')
+  assert.equal(harvestedFarmView.error, null)
+  assert.deepEqual(
+    harvestedFarmView.data.find(({ plot_id }) => plot_id === session.plot_id),
+    {
+      plot_id: session.plot_id,
+      plot_index: firstFarm.data.find(({ plot_id }) => plot_id === session.plot_id).plot_index,
+      farm_status: 'empty',
+      session_id: null,
+      session_status: null,
+      crop_id: null,
+      crop_name: null,
+      target_seconds: null,
+    },
+  )
+
   const profileCases = [
     [userA, '테스트🌱농부'],
     [userB, '농부'],
