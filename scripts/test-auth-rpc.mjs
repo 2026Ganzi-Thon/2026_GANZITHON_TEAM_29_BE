@@ -187,6 +187,40 @@ try {
     assert.equal(resume.data.status, 'focusing')
   }
 
+  runLocalSql(`update public.focus_sessions
+    set started_at = clock_timestamp() - interval '1 hour'
+    where id = '${session.session_id}'`)
+  const hiddenFocus = await restoredClient.rpc('get_active_focus', undefined, { get: true })
+  assert.equal(hiddenFocus.error, null)
+  assert.equal(hiddenFocus.data.session, null)
+  const foreignFinalize = await userB.client.rpc('finalize_my_focus')
+  assert.equal(foreignFinalize.error, null)
+  assert.equal(foreignFinalize.data, null)
+  const beforeFinalize = await userA.client.from('focus_sessions').select('status').eq('id', session.session_id).single()
+  assert.equal(beforeFinalize.error, null)
+  assert.equal(beforeFinalize.data.status, 'focusing')
+  const finalizations = await Promise.all([
+    restoredClient.rpc('finalize_my_focus'),
+    userA.client.rpc('finalize_my_focus'),
+  ])
+  for (const result of finalizations) assert.equal(result.error, null)
+  assert.deepEqual(finalizations.map(({ data }) => data).filter(Boolean), [
+    { session_id: session.session_id, status: 'ripe', focused_seconds: 600 },
+  ])
+
+  const [leftPlot, rightPlot] = firstFarm.data.slice(2, 4)
+  const nextStarts = await Promise.all([leftPlot, rightPlot].map(({ plot_id }) =>
+    userA.client.rpc('start_focus', { ...startArgs, p_plot_id: plot_id }),
+  ))
+  assert.equal(nextStarts.filter(({ error }) => !error).length, 1)
+  assert.equal(nextStarts.find(({ error }) => error).error.details, 'ACTIVE_SESSION_EXISTS')
+  const activeRows = await userA.client.from('focus_sessions').select('id').in('status', ['focusing', 'paused'])
+  assert.equal(activeRows.error, null)
+  assert.equal(activeRows.data.length, 1)
+  const anonymousFinalize = await rawRpc('finalize_my_focus', {})
+  assert.equal(anonymousFinalize.status, 401)
+  assert.equal(anonymousFinalize.body?.code, '42501')
+
   const profileCases = [
     [userA, '테스트🌱농부'],
     [userB, '농부'],
@@ -332,7 +366,7 @@ try {
   assert.equal(oldTokenRequest.status, 200, 'Existing access JWT remains valid until expiry after signout')
 
   console.log(
-    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, focus session restore and transitions, crops, error objects/status, JWT, signout)',
+    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, focus session restore, transitions and finalization, crops, error objects/status, JWT, signout)',
   )
 } finally {
   await Promise.all(clients.map((client) => client.auth.signOut().catch(() => {})))
