@@ -136,7 +136,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - 밭 생성, 세션 상태 확정, 실시간 타이머 계산을 하지 않음
 - 실시간 `focused_seconds`, `remaining_seconds`는 `get_active_focus()` 사용
 - 자동 수확 알림은 스키마 확정 후 후속 계약으로 추가
-- 현재 B 점유 인덱스에는 `harvested`가 포함되어 있어 실제 재심기는 B 인덱스·시작 RPC 변경 후 검증
+- `20261114054245_b_finalize_focus.sql`부터 점유 인덱스와 `start_focus()`는 `harvested`를 제외하며, 수확 기록을 보존한 재심기를 허용
 - 자동 수확 알림 응답은 [별도 계약 제안](auto-harvest-notice-proposal.md)에서 비교하며 합의 전 반환 타입을 변경하지 않음
 
 ## B 담당 RPC
@@ -183,5 +183,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 ### 완료·만료 및 과로 안내
 
 - 조회는 목표 도달과 24시간 일시정지 만료 세션을 숨기며 DB 상태를 변경하지 않습니다.
-- 후속 서버 처리에서 목표 도달은 `ripe`, 일시정지 만료는 `seed_saved`로 확정할 예정입니다. 확정 전에는 기존 활성 세션이 UNIQUE 제약에 남으므로 새 시작이 409로 거부될 수 있습니다. 새 시작 전 자동 확정 여부는 팀 정책 결정 대기입니다.
+- `start_focus()`는 본인 세션을 정리한 후 밭 점유와 활성 세션을 검사합니다. 목표 도달은 먼저 `ripe`로 확정하며 기록 시간은 목표 초로 제한합니다. 목표 미달인 일시정지가 24시간 이상이면 `seed_saved`로 확정하고, 휴식을 제외한 집중 시간을 저장합니다. 0초도 유효합니다.
+- `ripe`는 밭을 계속 점유하고 `seed_saved`는 밭을 비웁니다. 시작 요청이 오류로 끝나면 그 요청의 상태 정리도 롤백됩니다.
+- **재접속 연동 제안** · 인증 후 `supabase.rpc('finalize_my_focus')`를 POST로 호출하고 성공하면 `get_active_focus()`와 농장 조회를 수행합니다. 인자는 없고, 이번 호출에서 확정된 `{ session_id, status, focused_seconds }` 또는 `null`을 반환합니다. 이름과 앱 호출 위치는 A·프론트엔드 검토 대상입니다. 이 호출의 커밋은 후속 조회나 시작과 독립적입니다.
 - `show_overwork_notice`는 세션이 없으면 `false`입니다. 활성 세션에도 현재는 임시로 `false`를 반환하며, 표시 조건과 표시 이력 정책은 결정 대기입니다.

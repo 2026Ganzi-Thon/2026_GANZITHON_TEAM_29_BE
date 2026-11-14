@@ -61,7 +61,7 @@ Supabase RPC는 다음 행 배열을 JSON으로 반환합니다.
 - JOIN으로 밭 중복 없음
 - 함수가 B 세션 상태를 변경하지 않음
 
-현재 B의 `focus_sessions_one_occupant` 인덱스에는 `harvested`가 포함되어 있으므로 실제 재심기는 아직 B 변경에 의존합니다. 이 조회 계약은 수확 완료 밭을 비어 보이게 할 뿐, B의 시작 RPC나 점유 제약을 우회하지 않습니다.
+`20261114054245_b_finalize_focus.sql`부터 `focus_sessions_one_occupant`와 `start_focus()`는 `harvested`를 점유에서 제외합니다. 수확 기록은 보존하면서 같은 밭에 새 세션을 시작할 수 있습니다.
 
 ## `get_focus_history(p_period)` — 구현됨, 수확 집계 PARTIAL
 
