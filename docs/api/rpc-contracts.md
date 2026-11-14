@@ -112,10 +112,22 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 
 | 함수 | 입력 | 상태 |
 |---|---|---|
-| `get_my_farm()` | 없음 | B 쓰기 모델 후 구현; 세부 응답 `TBD` |
+| `get_my_farm()` | 없음 | 밭·점유 세션·작물의 조회 전용 행 배열 |
 | `get_focus_history(p_period)` | `today | week | all` | B 쓰기 모델 후 구현; 세부 응답 `TBD` |
 
 권장안·예시·결정 대기 항목은 [조회 모델 설계](read-model-design.md)에 기록합니다.
+
+### `get_my_farm()`
+
+- 반환: `[{ plot_id, plot_index, farm_status, session_id, session_status, crop_id, crop_name, target_seconds }]`
+- `plot_index ASC`; 밭이 없으면 빈 배열
+- `focusing | paused → growing`, `ripe → ripe`, `seed_saved | harvested → empty`
+- `empty`의 세션·작물·목표 시간 필드는 `NULL`
+- 밭 생성, 세션 상태 확정, 실시간 타이머 계산을 하지 않음
+- 실시간 `focused_seconds`, `remaining_seconds`는 `get_active_focus()` 사용
+- 자동 수확 알림은 스키마 확정 후 후속 계약으로 추가
+- 현재 B 점유 인덱스에는 `harvested`가 포함되어 있어 실제 재심기는 B 인덱스·시작 RPC 변경 후 검증
+- 자동 수확 알림 응답은 [별도 계약 제안](auto-harvest-notice-proposal.md)에서 비교하며 합의 전 반환 타입을 변경하지 않음
 
 ## B 담당 RPC
 
@@ -132,7 +144,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 ## 상태
 
 - 세션: `focusing`, `paused`, `seed_saved`, `ripe`, `harvested`
-- 농장 표시: `empty`, `growing`, `ripe`, `harvested`
+- 농장 표시: `empty`, `growing`, `ripe`
 
 세션 상태 전이, 실패 롤백, 자동 수확 경계는 B/A 공동 결정 전까지 `TBD`입니다.
 
