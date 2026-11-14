@@ -18,8 +18,11 @@
    - 조회 전용 `get_my_farm()`
    - 기존 RLS를 적용하는 `SECURITY INVOKER`
    - 밭 생성·세션 상태 변경 없음; `seed_saved`, `harvested`는 비점유 기록
+5. `20261113145323_a_focus_history.sql`
+   - `get_focus_history(p_period)`
+   - 집중 시간·씨앗 일별 집계; 수확 집계는 B `harvests` 병합 후 후속 마이그레이션
 
-네 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. `get_my_farm()`은 DB에 저장된 세션 상태만 투영하고 B의 상태를 변경하지 않습니다. 집중 세션은 목표 도달·24시간 일시정지 만료 후 DB 상태 확정이 아직 없으므로 후속 수정 전에는 Staging에 배포하지 않습니다.
+다섯 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. `get_my_farm()`과 `get_focus_history()`는 B의 상태를 변경하지 않습니다. 집중 세션은 목표 도달·24시간 일시정지 만료 후 DB 상태 확정이 아직 없으므로 후속 수정 전에는 Staging에 배포하지 않습니다.
 
 ## 생성 규칙
 
@@ -38,11 +41,12 @@ npx supabase migration new <descriptive_name>
 npm run db:reset
 npm run db:test
 npm run test:integration
+npm run test:history
 npm run db:lint
 npm audit
 ```
 
-`db:reset`은 로컬 DB를 재생성하므로 필요한 로컬 데이터를 미리 보존합니다. CLI v3에서 위 명령은 기본으로 로컬을 대상으로 하며 `--remote`를 사용하지 않습니다. `test:integration`은 publishable key만 사용하고 테스트 사용자를 정리합니다.
+`db:reset`은 로컬 DB를 재생성하므로 필요한 로컬 데이터를 미리 보존합니다. CLI v3에서 위 명령은 기본으로 로컬을 대상으로 하며 `--remote`를 사용하지 않습니다. 통합 테스트는 publishable key만 사용하고 테스트 사용자를 정리합니다.
 
 ## B 의존성
 
@@ -50,5 +54,5 @@ npm audit
 - `focus_sessions.crop_id` → `crops.id`
 - `start_focus` 시 `crops.target_seconds`를 세션에 복사
 - 복합 소유권 FK와 수확 멱등성은 [RPC 계약](../api/rpc-contracts.md)을 따름
-- `ensure_farm()`과 `complete_onboarding()` 연결은 B 마이그레이션 병합 후 공동 마이그레이션으로 처리
+- `ensure_farm()` 성공 후 `complete_onboarding()`을 호출하며, 실패 시 같은 순서로 멱등 재시도
 - B/Cron에 필요한 `service_role` 권한은 새 객체에 명시적으로만 `GRANT`; A 테이블/RPC에는 기본 권한 없음
