@@ -2,7 +2,19 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { readFileSync } from 'node:fs'
+import { runInNewContext } from 'node:vm'
 import { createClient } from '@supabase/supabase-js'
+
+const guide = readFileSync(new URL('../docs/api/frontend-integration.md', import.meta.url), 'utf8')
+const normalizer = guide.match(/export function normalizeBackendError[\s\S]*?\n}/)?.[0]
+assert.ok(normalizer, 'Frontend error normalization example is missing')
+const normalize = runInNewContext(normalizer.replace('export ', '') + '\nnormalizeBackendError')
+for (const code of ['22023', 'PT400']) {
+  assert.equal(normalize({ code, details: 'INVALID_INPUT' }, true), 'INVALID_INPUT')
+}
+assert.equal(normalize({ code: '42501' }, false), 'UNAUTHENTICATED')
+assert.equal(normalize({ code: '42501' }, true), 'UNKNOWN')
+assert.equal(normalize({ code: 'PT409', details: 'STOP_TOKEN_EXPIRED' }, true), 'STOP_TOKEN_EXPIRED')
 
 const status = JSON.parse(
   execFileSync('npx', ['supabase', 'status', '-o', 'json'], {
