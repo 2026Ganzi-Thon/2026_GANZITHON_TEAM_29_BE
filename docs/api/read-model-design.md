@@ -47,7 +47,7 @@ Supabase RPC는 다음 행 배열을 JSON으로 반환합니다.
 - \`crops\`에서는 표시용 이름만 조회
 - \`seed_saved\`, \`harvested\`는 기록으로 남지만 밭을 점유하지 않으므로 JOIN에서 제외
 - 실시간 \`focused_seconds\`, \`remaining_seconds\`는 \`get_active_focus()\`를 권위 응답으로 사용
-- B가 아직 자동 \`ripe\`/\`seed_saved\` 상태 확정을 구현하지 않았으므로 DB에 저장된 상태만 투영
+- DB에 저장된 상태만 투영하며, 재접속 시 상태 확정 호출 순서는 [B RPC 계약](rpc-contracts.md#완료만료-및-과로-안내)을 따름
 - 자동 수확 알림 ID는 원본 테이블과 ack 규칙 확정 후 별도 후속 마이그레이션으로 추가
 
 ### 테스트

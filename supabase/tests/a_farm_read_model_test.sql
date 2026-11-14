@@ -1,5 +1,5 @@
 begin;
-select plan(29);
+select plan(30);
 
 select has_function('public', 'get_my_farm', array[]::text[], 'get_my_farm exists');
 select ok(has_function_privilege('authenticated', 'public.get_my_farm()', 'execute'), 'authenticated can read own farm');
@@ -107,8 +107,8 @@ select is(
   'farm read does not mutate harvested history'
 );
 
--- Future-compatible read fixture: B still owns removal of harvested from the occupant index.
-drop index public.focus_sessions_one_occupant;
+select has_index('public', 'focus_sessions', 'focus_sessions_one_occupant',
+  'historical harvest fixture keeps the real occupant constraint');
 insert into public.focus_sessions (
   id, user_id, plot_id, crop_id, status, started_at, target_seconds, focused_seconds, record_date
 )

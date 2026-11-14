@@ -61,7 +61,7 @@ nickname은 표시 정보이며 권한 판단에 사용하지 않습니다. 회�
 
 ## 공통 오류 정규화
 
-RPC 오류는 `message`보다 `code`를 먼저 확인합니다. B 집중 RPC의 `PT409`만 `details` 식별자를 추가로 사용합니다.
+RPC 오류는 `message`보다 `code`를 먼저 확인합니다. A의 `22023`과 B의 `PT400`은 입력 오류로 정규화하고, `PT409`는 `details` 식별자를 유지합니다.
 
 ```js
 export function normalizeBackendError(error, hasSession) {
@@ -69,7 +69,7 @@ export function normalizeBackendError(error, hasSession) {
   if (error.code === 'PGRST301' || error.code === 'PT401') return 'UNAUTHENTICATED'
   if (error.code === '42501' && !hasSession) return 'UNAUTHENTICATED'
   if (error.code === 'PT404') return 'NOT_FOUND'
-  if (error.code === '22023') return 'INVALID_INPUT'
+  if (error.code === '22023' || error.code === 'PT400') return 'INVALID_INPUT'
   if (error.code === 'PT409') return error.details || 'INVALID_STATE'
   return 'UNKNOWN'
 }
