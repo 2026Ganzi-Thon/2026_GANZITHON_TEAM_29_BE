@@ -52,6 +52,9 @@ jobs:
       - name: Run Auth and RPC integration tests
         run: npm run test:integration
 
+      - name: Run focus history integration tests
+        run: npm run test:history
+
       - name: Lint database schema
         run: npm run db:lint
 

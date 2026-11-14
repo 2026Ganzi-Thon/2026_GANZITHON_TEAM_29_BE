@@ -96,7 +96,7 @@ const { data, error } = await supabase.rpc('complete_onboarding')
 // data: '2026-11-10T15:30:00+00:00'
 ```
 
-`ensure_farm()`은 구현되어 있으며 온보딩 완료와의 호출 순서·재시도 소유자는 A/B/프론트엔드가 확정합니다.
+농장 초기화 흐름에서는 멱등적인 `ensure_farm()`을 먼저 호출하고, 12칸 확인 후 `complete_onboarding()`을 마지막 완료 표시로 호출합니다. 둘은 단일 트랜잭션이 아니므로 실패하면 같은 순서를 다시 실행합니다. 이미 생성된 밭 ID와 최초 온보딩 시각은 유지됩니다.
 
 ### `list_crops(p_energy)`
 
@@ -108,14 +108,36 @@ const { data, error } = await supabase.rpc('complete_onboarding')
 const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 ```
 
-## 후속 A RPC
+## A 조회 RPC
 
 | 함수 | 입력 | 상태 |
 |---|---|---|
-| `get_my_farm()` | 없음 | B 쓰기 모델 후 구현; 세부 응답 `TBD` |
-| `get_focus_history(p_period)` | `today | week | all` | B 쓰기 모델 후 구현; 세부 응답 `TBD` |
+| `get_my_farm()` | 없음 | 구현·검증 완료 |
+| `get_focus_history(p_period)` | `today | week | all` | 집중/씨앗 집계 구현; 수확 집계 PARTIAL |
 
 권장안·예시·결정 대기 항목은 [조회 모델 설계](read-model-design.md)에 기록합니다.
+
+### `get_focus_history(p_period)`
+
+- 반환: `{ period, range, summary, items, capabilities }` JSON 객체
+- `today`: 사용자 시간대의 오늘 1개 일별 항목
+- `week`: 월요일~일요일 7개 일별 항목
+- `all`: 확정 기록이 존재하는 날짜만 오름차순
+- 집계 상태: `seed_saved | ripe | harvested`; 활성 `focusing | paused` 제외
+- 수확 스키마 병합 전 `harvest_count = null`, `capabilities.harvest_count = false`
+- 잘못된 기간은 `22023 / INVALID_INPUT`
+
+### `get_my_farm()`
+
+- 반환: `[{ plot_id, plot_index, farm_status, session_id, session_status, crop_id, crop_name, target_seconds }]`
+- `plot_index ASC`; 밭이 없으면 빈 배열
+- `focusing | paused → growing`, `ripe → ripe`, `seed_saved | harvested → empty`
+- `empty`의 세션·작물·목표 시간 필드는 `NULL`
+- 밭 생성, 세션 상태 확정, 실시간 타이머 계산을 하지 않음
+- 실시간 `focused_seconds`, `remaining_seconds`는 `get_active_focus()` 사용
+- 자동 수확 알림은 스키마 확정 후 후속 계약으로 추가
+- `20261114054245_b_finalize_focus.sql`부터 점유 인덱스와 `start_focus()`는 `harvested`를 제외하며, 수확 기록을 보존한 재심기를 허용
+- 자동 수확 알림 응답은 [별도 계약 제안](auto-harvest-notice-proposal.md)에서 비교하며 합의 전 반환 타입을 변경하지 않음
 
 ## B 담당 RPC
 
@@ -132,7 +154,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 ## 상태
 
 - 세션: `focusing`, `paused`, `seed_saved`, `ripe`, `harvested`
-- 농장 표시: `empty`, `growing`, `ripe`, `harvested`
+- 농장 표시: `empty`, `growing`, `ripe`
 
 세션 상태 전이, 실패 롤백, 자동 수확 경계는 B/A 공동 결정 전까지 `TBD`입니다.
 
