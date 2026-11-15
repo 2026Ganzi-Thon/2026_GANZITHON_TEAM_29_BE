@@ -12,7 +12,7 @@ select is((select data->>'status' from focus_result), 'focusing', 'start returns
 select is((select target_seconds from public.focus_sessions), 600, 'target copied from catalog');
 select is((select record_date from public.focus_sessions),
   (select (started_at at time zone 'Asia/Seoul')::date from public.focus_sessions), 'local start date');
-select is(public.get_active_focus() ->> 'show_overwork_notice', 'false', 'temporary active overwork fallback');
+select is(public.get_active_focus() ->> 'show_overwork_notice', 'false', 'short active focus does not qualify for overwork notice');
 select throws_ok(
   $$select public.start_focus(plot_id, '10000000-0000-4000-8000-000000000001') from focus_plots where plot_index = 2$$,
   'PT409', '이미 진행 중인 집중 세션이 있습니다.', 'second active start rejected'
