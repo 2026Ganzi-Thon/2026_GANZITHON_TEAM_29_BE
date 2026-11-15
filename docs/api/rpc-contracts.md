@@ -113,7 +113,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 | 함수 | 입력 | 상태 |
 |---|---|---|
 | `get_my_farm()` | 없음 | 구현·검증 완료 |
-| `get_focus_history(p_period)` | `today | week | all` | 집중/씨앗 집계 구현; 수확 집계 PARTIAL |
+| `get_focus_history(p_period)` | `today | week | all` | 집중 시간·씨앗·수확 집계 구현 |
 
 권장안·예시·결정 대기 항목은 [조회 모델 설계](read-model-design.md)에 기록합니다.
 
@@ -124,7 +124,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - `week`: 월요일~일요일 7개 일별 항목
 - `all`: 확정 기록이 존재하는 날짜만 오름차순
 - 집계 상태: `seed_saved | ripe | harvested`; 활성 `focusing | paused` 제외
-- 수확 스키마 병합 전 `harvest_count = null`, `capabilities.harvest_count = false`
+- `harvest_count`는 세션의 `record_date` 기준으로 실제 수확 기록을 집계합니다. 수동·자동 수확 모두 1건이며, 기록이 없으면 `0`을 반환합니다. `capabilities.harvest_count`는 `true`입니다.
 - 잘못된 기간은 `22023 / INVALID_INPUT`
 
 ### `get_my_farm()`
