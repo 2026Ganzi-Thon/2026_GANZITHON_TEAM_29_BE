@@ -205,3 +205,35 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 '계속 키우기'나 창 닫기에는 취소 RPC를 호출합니다. `cancelled: true`는 미소비 토큰이 호출 후 취소 상태임을, `false`는 이미 확정됐음을 뜻합니다. 같은 토큰을 반복 취소해도 `true`를 반환하며 최초 취소 시각을 유지합니다. 재접속 취소를 위해 앱은 토큰을 해당 사용자 세션의 보안 저장소에 임시 보관합니다. 인증 복원 후 남은 토큰을 취소하고 `finalize_my_focus()`를 호출한 다음 농장과 활성 세션을 조회합니다. 토큰을 잃으면 서버의 5분 TTL이 지나야 보류가 풀립니다. 토큰 만료 시 창을 닫고 `finalize_my_focus()`를 호출한 뒤 재조회합니다. 조회는 읽기 전용입니다.
 
 오류는 기존 Focus 응답 형식을 따릅니다. 잘못된 입력은 `PT400 / INVALID_INPUT`, 없는 세션 또는 타인 세션은 `PT404 / SESSION_NOT_FOUND`, 알 수 없거나 타인 소유인 토큰은 `PT404 / STOP_TOKEN_NOT_FOUND`입니다. 미소비 토큰 만료는 `PT409 / STOP_TOKEN_EXPIRED`, 취소·교체·부적합한 세션 상태는 `PT409 / INVALID_STATE`입니다. 익명 역할은 함수 실행 권한이 없습니다.
+
+### 수확 및 자동 수확 안내
+
+| 함수 | JSON 요청 | JSON 응답 |
+| --- | --- | --- |
+| `harvest_crop(p_session_id uuid)` | `{ "p_session_id": "<uuid>" }` | `{ harvest_id, session_id, plot_id, crop_id, focused_seconds, harvested_at, auto_harvested }` |
+| `process_due_harvests()` | DB 내부 호출, 인자 없음 | `{ processed_count }` |
+| `ack_auto_harvest_notice(p_harvest_ids uuid[])` | `{ "p_harvest_ids": ["<uuid>"] }` | `{ acknowledged_count }` |
+
+`ripe`는 밭을 점유합니다. 수확 기록 생성과 `harvested` 전환을 함께 커밋하고 밭을 해제합니다. 세션당 수확 기록은 한 건입니다. 재요청은 최초 수확 결과를 반환합니다. 수확 기한에 도달한 요청은 예약 실행을 기다리는 중에도 자동 수확으로 기록합니다.
+
+목표에 도달한 실제 시각을 `ripe_at`으로 저장합니다. 확정 시점의 프로필 시간대를 적용해 해당 현지 날짜의 다음 자정을 `auto_harvest_at`으로 저장합니다. 기존 `ripe` 행은 세션 시작 시각, 누적 휴식, 목표 초로 완료 시각을 재구성합니다. 과거 시간대 스냅샷이 없어 마이그레이션 시점의 프로필 시간대를 사용합니다. 저장된 기한은 고정합니다.
+
+프로필의 신규 시간대는 PostgreSQL `pg_timezone_names`에 등록된 이름만 허용합니다. 기존 미등록 값은 운영자가 사용자 확인 후 수정할 수 있도록 보존합니다. 해당 세션의 완료 상태는 정상 확정되며 자동 수확 기한만 비워 둡니다. 프로필 수정 후 다음 예약 실행 또는 수확 요청에서 기한을 채웁니다. 기한을 계산할 수 없는 동안에는 명시적 수확 요청을 수동으로 기록합니다.
+
+예약 함수는 기존 상태 확정과 미리보기 보류 규칙을 사용합니다. 현재 DB 함수 소유자로 실행할 수 있으며 앱 역할의 실행 권한은 회수합니다. 운영 스케줄, 주기, 전용 DB 역할은 배포 전 확정합니다.
+
+수동 수확은 타인 또는 없는 세션에 `PT404 / SESSION_NOT_FOUND`, 미수확 상태가 `ripe`가 아니면 `PT409 / NOT_RIPE`를 반환합니다. 확인 요청의 빈 배열 및 null 원소는 `PT400 / INVALID_INPUT`이며, 본인 자동 수확에 속하지 않는 ID가 하나라도 있으면 `PT404 / AUTO_HARVEST_NOT_FOUND`로 전체를 거부합니다. 확인 시각은 최초 한 번만 기록합니다.
+
+농장 조회의 기존 밭 배열 계약을 사용합니다. 별도 조회 RPC를 합의하기 전에는 인증된 Supabase 클라이언트에서 본인의 미확인 ID를 조회할 수 있습니다.
+
+```js
+const { data, error } = await supabase
+  .from('harvests')
+  .select('id')
+  .eq('auto_harvested', true)
+  .is('notice_acknowledged_at', null)
+  .order('harvested_at')
+  .order('id')
+```
+
+성공하면 `[{ "id": "<uuid>" }]` 형식의 배열을 받습니다. 결과가 없으면 `[]`입니다. S03에서 실제 표시한 ID만 확인하고, 수확 응답이 `auto_harvested: true`이면 농장과 미확인 목록을 다시 조회합니다. RLS가 소유권을 검사합니다. 별도 조회 RPC는 추후 페이징이나 응답 계약이 필요할 때 합의합니다.

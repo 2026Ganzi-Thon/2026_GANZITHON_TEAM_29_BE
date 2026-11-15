@@ -316,9 +316,37 @@ try {
   assert.equal(stopped.error, null)
   assert.deepEqual(stopped.data, { status: 'seed_saved', focused_seconds: stop.data.focused_seconds })
 
-  runLocalSql(`update public.focus_sessions
-    set status = 'harvested', focused_seconds = target_seconds
+  runLocalSql(`update public.focus_sessions set auto_harvest_at = clock_timestamp() - interval '1 day'
     where id = '${session.session_id}'`)
+  const harvestArgs = { p_session_id: session.session_id }
+  const foreignHarvest = await userB.client.rpc('harvest_crop', harvestArgs)
+  assert.equal(foreignHarvest.error?.details, 'SESSION_NOT_FOUND')
+  const harvests = await Promise.all([
+    userA.client.rpc('harvest_crop', harvestArgs),
+    restoredClient.rpc('harvest_crop', harvestArgs),
+  ])
+  for (const harvest of harvests) assert.equal(harvest.error, null)
+  assert.deepEqual(harvests[0].data, harvests[1].data)
+  assert.equal(harvests[0].data.auto_harvested, true)
+  const ackArgs = { p_harvest_ids: [harvests[0].data.harvest_id] }
+  const unreadHarvests = (client) => client.from('harvests').select('id')
+    .eq('id', ackArgs.p_harvest_ids[0]).eq('auto_harvested', true).is('notice_acknowledged_at', null)
+  const ownNotice = await unreadHarvests(userA.client)
+  assert.equal(ownNotice.error, null)
+  assert.deepEqual(ownNotice.data, [{ id: ackArgs.p_harvest_ids[0] }])
+  const foreignNotice = await unreadHarvests(userB.client)
+  assert.equal(foreignNotice.error, null)
+  assert.deepEqual(foreignNotice.data, [])
+  const foreignAck = await userB.client.rpc('ack_auto_harvest_notice', ackArgs)
+  assert.equal(foreignAck.error?.details, 'AUTO_HARVEST_NOT_FOUND')
+  const ack = await userA.client.rpc('ack_auto_harvest_notice', ackArgs)
+  assert.equal(ack.error, null)
+  assert.equal(ack.data.acknowledged_count, 1)
+  const acknowledgedNotice = await unreadHarvests(userA.client)
+  assert.equal(acknowledgedNotice.error, null)
+  assert.deepEqual(acknowledgedNotice.data, [])
+
+
   const harvestedFarmView = await userA.client.rpc('get_my_farm')
   assert.equal(harvestedFarmView.error, null)
   assert.deepEqual(
@@ -334,13 +362,11 @@ try {
       target_seconds: null,
     },
   )
-  runLocalSql(`update public.focus_sessions
-    set status = 'seed_saved', paused_at = null
-    where user_id = '${userA.user.id}' and status in ('focusing', 'paused')`)
   const replant = await userA.client.rpc('start_focus', { ...startArgs, p_plot_id: session.plot_id })
   assert.equal(replant.error, null)
   const replantedFarmView = await userA.client.rpc('get_my_farm')
   assert.equal(replantedFarmView.error, null)
+  assert.equal(replantedFarmView.data.filter(({ plot_id }) => plot_id === session.plot_id).length, 1)
   assert.equal(
     replantedFarmView.data.find(({ plot_id }) => plot_id === session.plot_id).session_id,
     replant.data.session_id,
@@ -491,7 +517,7 @@ try {
   assert.equal(oldTokenRequest.status, 200, 'Existing access JWT remains valid until expiry after signout')
 
   console.log(
-    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, farm read projection, focus session restore, transitions, finalization and stop preview, crops, error objects/status, JWT, signout)',
+    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, farm read projection, focus session restore, transitions, finalization and stop preview, harvest and notice acknowledgement, crops, error objects/status, JWT, signout)',
   )
 } finally {
   await Promise.all(clients.map((client) => client.auth.signOut().catch(() => {})))
