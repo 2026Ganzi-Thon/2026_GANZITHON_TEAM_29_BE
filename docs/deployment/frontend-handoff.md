@@ -1,6 +1,6 @@
 # 집중농장 Staging 프론트엔드 인계
 
-검증일: 2026-11-15 (Asia/Seoul). **Staging DB 배포 완료, 인증 사용자 E2E는 아직 미검증**입니다.
+검증일: 2026-11-15 (Asia/Seoul). **Staging 실제 Auth·인증 RPC·예약 자동 수확 E2E 통과**입니다. 상세 범위와 제한은 [원격 E2E 기록](staging-remote-e2e.md)을 따릅니다.
 
 ## 연결 정보
 
@@ -37,7 +37,7 @@ await supabase.auth.getSession()
 await supabase.auth.signOut()
 ```
 
-공개 Auth `/auth/v1/settings`에서 `external.email=true`, `disable_signup=false`, `mailer_autoconfirm=true`를 확인했습니다. 이메일/비밀번호 가입 허용, Confirm email OFF 정책과 일치합니다. 실제 signUp/signIn/getSession/signOut의 원격 사용자 성공 경로는 계정 생성 승인·테스트 계정 부재로 실행하지 않았습니다. `nickname` metadata는 표시용이며 권한 판단에 사용하지 않습니다.
+공개 Auth `/auth/v1/settings`에서 `external.email=true`, `disable_signup=false`, `mailer_autoconfirm=true`를 확인했습니다. 승인된 고유 임시 계정 2개로 실제 signUp/signInWithPassword/setSession/getSession/getUser/signOut을 검증했고 가입 즉시 세션도 확인했습니다. `nickname` metadata는 표시용이며 권한 판단에 사용하지 않습니다. 테스트 계정과 관련 데이터는 검증 후 삭제했습니다.
 
 ## 실제 검증 범위
 
@@ -46,7 +46,7 @@ await supabase.auth.signOut()
 - `PENDING`: 구현·정책·예약 또는 승인이 남음.
 - `FAILED`: 검증 실패. 이번 배포 명령·로컬 테스트·익명 차단 검사에는 없음.
 
-**아래 모든 앱 RPC의 성공 동작은 VERIFIED_LOCAL_ONLY**입니다. 원격에서 함수·입력·반환 타입·권한은 확인했고 20개 함수의 익명 POST가 HTTP 401 / SQLSTATE 42501인 것은 VERIFIED_REMOTE입니다. 이것을 원격 인증 E2E 통과로 해석하지 않습니다.
+아래 앱 RPC 19개의 성공 호출과 Auth는 **VERIFIED_REMOTE**입니다. `claim_overwork_notice`는 정상적인 비대상 세션의 `false` 분기만 원격 검증했으며, 90분 초과 `true`·일별 경합은 VERIFIED_LOCAL_ONLY입니다. 자동 수확은 실제 예약 실행에 의한 테스트 세션 수확을 확인했습니다. 관리자 직접 실행은 이번 E2E에서 호출하지 않았습니다. 모든 오류·시간 경계·동시성 조합을 원격 전수검증한 의미는 아닙니다.
 
 ## RPC 요청·응답
 
@@ -149,9 +149,9 @@ const { data: notices, error } = await supabase.from('harvests')
 // 실제 표시한 ID만 ack_auto_harvest_notice({ p_harvest_ids: displayedIds })로 확인합니다.
 ```
 
-미확인 조회 성공 동작은 VERIFIED_LOCAL_ONLY, 익명 차단은 VERIFIED_REMOTE입니다. 밭마다 사용자 전체 알림 ID를 중복 추가하지 않습니다.
+미확인 조회·ack·재시도·타인 ack 차단·확인 후 목록 제거와 익명 차단은 VERIFIED_REMOTE입니다. 밭마다 사용자 전체 알림 ID를 중복 추가하지 않습니다.
 
-**자동 수확 Cron ACTIVE**입니다(2026-11-15). `focus-farm-auto-harvest-staging`이 관리자 `postgres`로 `* * * * *`마다 DB 내부 `SELECT public.process_due_harvests();`를 실행합니다. 실제 예약 실행 2회 성공을 DB 이력에서 확인했습니다. 사용자 현지 날짜 기준 다음 자정 이후의 첫 실행에서 처리하며, 배치 최대 100명·잠금·작업 시간·장애에 따라 1분 이상 지연될 수 있습니다. 중복 수확은 세션 UNIQUE와 기존 행 잠금으로 방어합니다. 실제 수확 대상이 없는 상태에서 스케줄러만 VERIFIED_REMOTE이며 원격 수확 성공·수동 수확과 Cron 경쟁·실제 자정 경계는 여전히 미검증입니다. 로컬 검증과 [Cron 운영 기록](auto-harvest-cron.md)을 참고하세요. 알림 조회와 ack 방법은 위 예제를 그대로 사용합니다.
+**자동 수확 Cron ACTIVE**입니다(2026-11-15). `focus-farm-auto-harvest-staging`이 관리자 `postgres`로 `* * * * *`마다 DB 내부 `SELECT public.process_due_harvests();`를 실행합니다. 한국 시각 23:52의 실제 예약 실행이 테스트 세션을 수확했고 수확 기록 1건·auto_harvested=true·빈 밭·알림 조회와 ack를 확인했습니다. 테스트 계정 전용 시각만 승인 범위에서 조정했습니다. 사용자 현지 날짜 기준 다음 자정 이후 처리하며 배치·잠금·작업 시간·장애에 따라 1분 이상 지연될 수 있습니다. 실제 현지 자정까지의 자연 경과와 수동 수확/Cron 경합의 모든 순서는 원격 미검증입니다. [Cron 운영 기록](auto-harvest-cron.md)을 참고하세요.
 
 ## 배포 및 검증 기록
 
@@ -180,7 +180,7 @@ CLI 실제 결과: `npx supabase db push --dry-run --skip-vault --remote` → �
 
 원격 확인: public `profiles/crops/farm_plots/focus_sessions/harvests`, private `focus_stop_previews/overwork_notices` 전부 RLS 활성화. 사용자 테이블 정책은 auth.uid 기반이며 수확은 소유 세션 JOIN을 사용합니다. 앱 RPC 19개는 authenticated만 실행 가능하고 process_due_harvests는 앱 role 실행 금지입니다. 프로필 생성·timezone 검증·stop 무효화·ripe 기한·집중 종료 시각 트리거, 세션당 수확 UNIQUE, 복합 소유권 FK, 활성 세션·점유 UNIQUE 및 관련 인덱스를 조회했습니다. pgcrypto 1.3 존재. 작물 6종, Auth 사용자/프로필/세션/수확 0명·0건을 확인했습니다.
 
-원격 스모크: 앱 RPC 19개+DB 관리 함수 1개 익명 POST 모두 401/42501; public 테이블 5개 익명 SELECT 모두 401. `/auth/v1/settings` 정책 확인. 원격 테스트 사용자는 생성하지 않았고 업무 데이터·시간을 조작하지 않았습니다.
+최초 배포 스모크: 앱 RPC 19개+DB 관리 함수 1개 익명 POST 모두 401/42501; public 테이블 5개 익명 SELECT 모두 401. 이후 승인된 실제 Auth E2E에서는 임시 계정 2개를 생성하고 해당 계정 소유 세션의 시각만 조정했습니다. 완료 후 계정·관련 업무 데이터·Auth 세션·보조 데이터 모두 0건으로 정리했습니다.
 
 ## Advisor 분류
 
@@ -193,7 +193,7 @@ CLI 실제 결과: `npx supabase db push --dry-run --skip-vault --remote` → �
 | Performance INFO 2 | due_harvest/streak 인덱스 미사용. 신규·빈 DB이므로 삭제 근거 아님 |
 | Health | 프로젝트 ACTIVE_HEALTHY 확인. 현재 CLI advisor type은 all/security/performance만 제공; 별도 Health Advisor 결과·장기 로그 관찰은 미검증 |
 
-Advisor 경고가 0이라고 보고하지 않습니다. Cron은 실제 예약 실행까지 확인했으며, 원격 인증 E2E와 실제 수확 데이터 처리는 별도 검증이 필요합니다.
+Advisor 경고가 0이라고 보고하지 않습니다. Auth·앱 RPC·실제 예약 수확의 검증 결과는 [원격 E2E 기록](staging-remote-e2e.md)에 정리했습니다. Notion 대조·장기 부하·일부 오류/시간 경계는 미검증입니다.
 
 ## Notion 대조
 
@@ -211,6 +211,6 @@ Advisor 경고가 0이라고 보고하지 않습니다. Cron은 실제 예약 �
 - 명세: https://app.notion.com/p/API-8becc0a84f5e8370814501e647d668d9?source=copy_link (백엔드에서는 접근 불가로 대조 미검증)
 - 이메일/비밀번호, 가입 허용, Confirm email OFF, nickname metadata 정책입니다.
 - 프로필·온보딩·작물·농장·집중·중단·수확·집중 기록·수확 메모·휴식·과로 안내 API가 배포됐습니다. 수확 집계는 이제 숫자/capability=true입니다.
-- 로컬 303개 DB 테스트와 통합 테스트 통과, 원격 스키마·권한·익명 차단·Auth 공개 설정 확인했습니다. 원격 계정 생성 승인이 없어 로그인 사용자 E2E는 아직 미검증입니다.
-- 자동 수확 Cron은 1분 주기로 ACTIVE이며 실제 예약 실행 2회 성공했습니다. 사용자 현지 다음 자정 이후 처리하고 배치·잠금에 따라 지연될 수 있습니다. 원격 실제 수확 성공 경로는 아직 미검증이고 기록 초기화 API는 미구현입니다.
+- 로컬 303개 DB 테스트와 통합 테스트 통과, 실제 임시 계정 2개로 Auth·RPC·계정 간 RLS를 원격 검증했습니다. 테스트 계정과 데이터는 모두 정리됐습니다.
+- 자동 수확 Cron은 1분 주기로 ACTIVE이고 실제 예약 실행에 의한 수확·알림·ack까지 검증했습니다. 자연 자정 경과·경합 전수검증은 남아 있고 기록 초기화 API는 미구현입니다. 과로 안내 true 분기는 로컬 검증입니다.
 - 연동 중 응답·화면 계약 차이가 보이면 API 이름, 입력 형태, 오류 code/details와 재현 순서를 공유해주세요. 토큰·비밀번호는 공유하지 마세요.
