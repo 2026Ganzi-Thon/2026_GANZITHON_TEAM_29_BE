@@ -63,7 +63,7 @@ Supabase RPC는 다음 행 배열을 JSON으로 반환합니다.
 
 `20261114054245_b_finalize_focus.sql`부터 `focus_sessions_one_occupant`와 `start_focus()`는 `harvested`를 점유에서 제외합니다. 수확 기록은 보존하면서 같은 밭에 새 세션을 시작할 수 있습니다.
 
-## `get_focus_history(p_period)` — 구현됨, 수확 집계 PARTIAL
+## `get_focus_history(p_period)` — 구현됨
 
 ### 입력과 기간
 
@@ -81,18 +81,18 @@ Supabase RPC는 다음 행 배열을 JSON으로 반환합니다.
 {
   "period": "week",
   "range": { "start_date": "2026-11-09", "end_date": "2026-11-15", "timezone": "Asia/Seoul" },
-  "summary": { "focused_seconds": 7200, "seed_count": 1, "harvest_count": null },
+  "summary": { "focused_seconds": 7200, "seed_count": 1, "harvest_count": 0 },
   "items": [
-    { "record_date": "2026-11-09", "focused_seconds": 1800, "seed_count": 0, "harvest_count": null }
+    { "record_date": "2026-11-09", "focused_seconds": 1800, "seed_count": 0, "harvest_count": 0 }
   ],
-  "capabilities": { "harvest_count": false }
+  "capabilities": { "harvest_count": true }
 }
 ```
 
 - `focused_seconds`: 확정 세션의 초 합계이며 0초 기록도 유지
 - `seed_count`: `seed_saved` 세션 수
-- `harvest_count`: `harvests`가 아직 없으므로 정상값처럼 0을 반환하지 않고 `null`
-- `capabilities.harvest_count`: 현재 `false`; B 수확 스키마 연동 후에만 `true`
+- `harvest_count`는 `harvests` 행이 있는 세션을 `record_date` 기준으로 집계합니다. 수확 시각이 다음 날이어도 세션 시작일에 귀속하며, 수확 기록이 없으면 `0`입니다.
+- `capabilities.harvest_count`는 `true`입니다.
 - `all` 빈 결과: `range.start_date/end_date = null`, 0 요약, 빈 `items`
 - 다른 사용자 행은 `auth.uid()` 필터와 `focus_sessions` RLS로 이중 격리
 - 함수는 `STABLE SECURITY INVOKER`, 빈 `search_path`, 조회 전용
@@ -100,7 +100,6 @@ Supabase RPC는 다음 행 배열을 JSON으로 반환합니다.
 ### 결정 대기
 
 - Figma v1.2의 실제 필드·그룹·정렬 확인: 프론트엔드/기획
-- 수확 집계의 원본 테이블·완료 시각·자동 수확 귀속일: B/기획
 - `reset_farm_history()`의 물리 삭제, 논리 삭제, 복구 규칙: B/기획
 - 시간대 변경 시 기존 `record_date` 보존 여부: A/기획
 - 일별 합계가 아닌 원시 세션 상세가 화면에 필요한지: 프론트엔드/A

@@ -40,7 +40,7 @@
 - [ ] 적용 version과 출력 보존
 - [ ] 가입 직후 세션 발급, nickname 프로필 생성
 - [ ] A RPC 5개와 작물 6종
-- [ ] `get_focus_history()`의 `harvest_count = null`, `capabilities.harvest_count = false` 확인
+- [ ] `get_focus_history()`의 `harvest_count는 실제 수확 건수이며 없으면 0`, `capabilities.harvest_count = true` 확인
 - [ ] \`ensure_farm()\` 멱등성과 밭 12개
 - [ ] 타 사용자 접근 거부와 RLS 격리
 - [ ] 집중 시작·조회·일시정지·재개

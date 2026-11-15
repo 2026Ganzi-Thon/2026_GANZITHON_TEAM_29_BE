@@ -1,5 +1,5 @@
 begin;
-select plan(39);
+select plan(48);
 
 select has_function('public', 'get_focus_history', array['text'], 'history RPC exists');
 select ok(has_function_privilege('authenticated', 'public.get_focus_history(text)', 'EXECUTE'), 'authenticated can execute history RPC');
@@ -74,6 +74,23 @@ from public.farm_plots
 join (values (1, 'seed_saved', 0), (2, 'ripe', 25)) as fixture(plot_index, status, focused_seconds) using (plot_index)
 where user_id = 'a5000000-0000-4000-8000-000000000004';
 
+update public.focus_sessions
+set status = 'harvested'
+where (user_id = 'a5000000-0000-4000-8000-000000000003' and status = 'ripe')
+   or (user_id = 'a5000000-0000-4000-8000-000000000004' and status = 'ripe');
+
+insert into public.harvests (session_id, harvested_at, auto_harvested)
+select id, ((record_date + 1)::timestamp at time zone 'Asia/Seoul'),
+  user_id <> 'a5000000-0000-4000-8000-000000000004'
+from public.focus_sessions where status = 'harvested';
+
+-- Simulate replanted activity on the first user's harvested plot.
+update public.focus_sessions active
+set plot_id = previous.plot_id
+from public.focus_sessions previous
+where active.user_id = 'a5000000-0000-4000-8000-000000000001'
+  and active.status = 'focusing' and previous.user_id = active.user_id and previous.status = 'harvested';
+
 set local request.jwt.claim.sub = 'a5000000-0000-4000-8000-000000000001';
 set local role authenticated;
 create temp table all_history as select public.get_focus_history('all') as data;
@@ -83,8 +100,14 @@ select is((select data->'range'->>'end_date' from all_history), '2026-01-05', 'a
 select is((select data->'range'->>'timezone' from all_history), 'Asia/Seoul', 'response includes profile timezone');
 select is((select data->'summary'->>'focused_seconds' from all_history), '150', 'all sums finalized seconds including zero');
 select is((select data->'summary'->>'seed_count' from all_history), '3', 'all counts seed-saved sessions');
-select is((select data->'summary'->'harvest_count' from all_history), 'null'::jsonb, 'unsupported harvest count is null');
-select is((select data->'capabilities'->>'harvest_count' from all_history), 'false', 'response advertises unavailable harvest count');
+select is((select data->'summary'->>'harvest_count' from all_history), '1', 'counts only own real harvest');
+select is((select data->'capabilities'->>'harvest_count' from all_history), 'true', 'harvest count available');
+select is((select item->>'harvest_count' from all_history, jsonb_array_elements(data->'items') item
+  where item->>'record_date' = '2026-01-01'), '1', 'midnight auto harvest belongs to session date');
+select is((select item->>'harvest_count' from all_history, jsonb_array_elements(data->'items') item
+  where item->>'record_date' = '2025-12-31'), '0', 'unharvested ripe does not count');
+select is((select sum((item->>'harvest_count')::integer) from all_history, jsonb_array_elements(data->'items') item),
+  1::bigint, 'replant and year boundary preserve daily total');
 select is((select jsonb_array_length(data->'items') from all_history), 6, 'all includes only dates with finalized records');
 select is((select data->'items'->0->>'focused_seconds' from all_history), '0', 'zero-second seed is retained');
 select is((select data->'items'->0->>'record_date' from all_history), '2025-12-28', 'items are chronological');
@@ -101,6 +124,9 @@ select is((select jsonb_array_length(data->'items') from week_history), 7, 'week
 select is((select data->'summary'->>'focused_seconds' from week_history), '30', 'week sums its two finalized sessions');
 select is((select data->'summary'->>'seed_count' from week_history), '1', 'week counts zero-safe seeds');
 select is((select count(*) from week_history, jsonb_array_elements(data->'items') item where (item->>'focused_seconds')::integer = 0), 5::bigint, 'week fills empty days with zeros');
+select is((select data->'summary'->>'harvest_count' from week_history), '1', 'Sunday session counts in its week');
+select is((select data->'items'->6->>'harvest_count' from week_history), '1', 'Sunday harvest is not moved to Monday');
+select is((select data->'items'->1->>'harvest_count' from week_history), '0', 'empty weekday has zero harvests');
 reset role;
 
 set local request.jwt.claim.sub = 'a5000000-0000-4000-8000-000000000004';
@@ -109,6 +135,8 @@ create temp table today_history as select public.get_focus_history('today') as d
 select is((select jsonb_array_length(data->'items') from today_history), 1, 'today returns one daily bucket');
 select is((select data->'summary'->>'focused_seconds' from today_history), '25', 'today sums finalized seconds');
 select is((select data->'summary'->>'seed_count' from today_history), '1', 'today counts zero-second seed');
+select is((select data->'summary'->>'harvest_count' from today_history), '1', 'manual harvest counts today');
+select is((select data->'items'->0->>'harvest_count' from today_history), '1', 'today bucket counts manual harvest');
 reset role;
 
 set local request.jwt.claim.sub = 'a5000000-0000-4000-8000-000000000005';
@@ -119,6 +147,7 @@ select is((select data->'range'->'end_date' from empty_history), 'null'::jsonb, 
 select is((select data->'items' from empty_history), '[]'::jsonb, 'empty all has no items');
 select is((select data->'summary'->>'focused_seconds' from empty_history), '0', 'empty all has zero seconds');
 select is((select data->'summary'->>'seed_count' from empty_history), '0', 'empty all has zero seeds');
+select is((select data->'summary'->>'harvest_count' from empty_history), '0', 'empty history has zero harvests');
 select throws_ok($$select public.get_focus_history('month')$$, '22023', 'INVALID_INPUT', 'unknown period rejected');
 select throws_ok($$select public.get_focus_history(null)$$, '22023', 'INVALID_INPUT', 'null period rejected');
 reset role;

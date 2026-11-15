@@ -105,12 +105,29 @@ try {
     end_date: '2026-01-02',
     timezone: 'Asia/Seoul',
   })
-  assert.deepEqual(history.data.summary, { focused_seconds: 30, seed_count: 1, harvest_count: null })
-  assert.deepEqual(history.data.capabilities, { harvest_count: false })
+  assert.deepEqual(history.data.summary, { focused_seconds: 30, seed_count: 1, harvest_count: 0 })
+  assert.deepEqual(history.data.capabilities, { harvest_count: true })
   assert.deepEqual(history.data.items, [
-    { record_date: '2026-01-01', focused_seconds: 0, seed_count: 1, harvest_count: null },
-    { record_date: '2026-01-02', focused_seconds: 30, seed_count: 0, harvest_count: null },
+    { record_date: '2026-01-01', focused_seconds: 0, seed_count: 1, harvest_count: 0 },
+    { record_date: '2026-01-02', focused_seconds: 30, seed_count: 0, harvest_count: 0 },
   ])
+
+  const ripeSession = await owner.client.from('focus_sessions').select('id').eq('status', 'ripe').single()
+  assert.equal(ripeSession.error, null)
+  const harvest = await owner.client.rpc('harvest_crop', { p_session_id: ripeSession.data.id })
+  assert.equal(harvest.error, null)
+  assert.equal(harvest.data.auto_harvested, false)
+
+  const harvestedHistory = await owner.client.rpc('get_focus_history', { p_period: 'all' })
+  assert.equal(harvestedHistory.error, null)
+  assert.deepEqual(harvestedHistory.data, {
+    ...history.data,
+    summary: { ...history.data.summary, harvest_count: 1 },
+    items: [history.data.items[0], { ...history.data.items[1], harvest_count: 1 }],
+  })
+  const otherHistory = await other.client.rpc('get_focus_history', { p_period: 'all' })
+  assert.equal(otherHistory.error, null)
+  assert.deepEqual(otherHistory.data.summary, { focused_seconds: 700, seed_count: 1, harvest_count: 0 })
 
   const invalid = await owner.client.rpc('get_focus_history', { p_period: 'month' })
   assert.equal(invalid.error?.code, '22023')
