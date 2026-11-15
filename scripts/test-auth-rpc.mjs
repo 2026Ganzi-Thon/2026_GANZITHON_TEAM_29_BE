@@ -342,6 +342,13 @@ try {
   const ack = await userA.client.rpc('ack_auto_harvest_notice', ackArgs)
   assert.equal(ack.error, null)
   assert.equal(ack.data.acknowledged_count, 1)
+  for (const token of [undefined, userA.token]) {
+    const gatedNote = await rawRpc('save_harvest_note', {
+      p_harvest_id: ackArgs.p_harvest_ids[0], p_note: '테스트 메모',
+    }, token)
+    assert.equal(gatedNote.status, token ? 403 : 401)
+    assert.equal(gatedNote.body.code, '42501')
+  }
   const acknowledgedNotice = await unreadHarvests(userA.client)
   assert.equal(acknowledgedNotice.error, null)
   assert.deepEqual(acknowledgedNotice.data, [])
