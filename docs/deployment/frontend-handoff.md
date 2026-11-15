@@ -151,7 +151,7 @@ const { data: notices, error } = await supabase.from('harvests')
 
 미확인 조회 성공 동작은 VERIFIED_LOCAL_ONLY, 익명 차단은 VERIFIED_REMOTE입니다. 밭마다 사용자 전체 알림 ID를 중복 추가하지 않습니다.
 
-**자동 수확 스케줄은 PENDING**입니다. 원격 pg_cron 확장이 없으며 자동 수확 예약은 구성하지 않았습니다. process_due_harvests 함수 존재만 확인됐고 원격 실행·예약 로그·실제 자정 처리·수동 수확과의 원격 경쟁은 미검증입니다. 함수는 사용자 시간대에서 목표 달성일의 다음 자정을 기한으로 계산하지만, 예약이 없으면 백그라운드 자동 실행은 일어나지 않습니다. 기한 이후 수동 harvest 호출은 auto_harvested=true일 수 있습니다. B와 주기·DB 실행 역할·배치 최대 100명 처리 정책을 합의한 뒤 별도 배포해야 합니다.
+**자동 수확 Cron ACTIVE**입니다(2026-11-15). `focus-farm-auto-harvest-staging`이 관리자 `postgres`로 `* * * * *`마다 DB 내부 `SELECT public.process_due_harvests();`를 실행합니다. 실제 예약 실행 2회 성공을 DB 이력에서 확인했습니다. 사용자 현지 날짜 기준 다음 자정 이후의 첫 실행에서 처리하며, 배치 최대 100명·잠금·작업 시간·장애에 따라 1분 이상 지연될 수 있습니다. 중복 수확은 세션 UNIQUE와 기존 행 잠금으로 방어합니다. 실제 수확 대상이 없는 상태에서 스케줄러만 VERIFIED_REMOTE이며 원격 수확 성공·수동 수확과 Cron 경쟁·실제 자정 경계는 여전히 미검증입니다. 로컬 검증과 [Cron 운영 기록](auto-harvest-cron.md)을 참고하세요. 알림 조회와 ack 방법은 위 예제를 그대로 사용합니다.
 
 ## 배포 및 검증 기록
 
@@ -193,7 +193,7 @@ CLI 실제 결과: `npx supabase db push --dry-run --skip-vault --remote` → �
 | Performance INFO 2 | due_harvest/streak 인덱스 미사용. 신규·빈 DB이므로 삭제 근거 아님 |
 | Health | 프로젝트 ACTIVE_HEALTHY 확인. 현재 CLI advisor type은 all/security/performance만 제공; 별도 Health Advisor 결과·장기 로그 관찰은 미검증 |
 
-Advisor 경고가 0이라고 보고하지 않습니다. API 연결은 가능하지만 원격 인증 E2E와 Cron은 별도 완료가 필요합니다.
+Advisor 경고가 0이라고 보고하지 않습니다. Cron은 실제 예약 실행까지 확인했으며, 원격 인증 E2E와 실제 수확 데이터 처리는 별도 검증이 필요합니다.
 
 ## Notion 대조
 
@@ -212,5 +212,5 @@ Advisor 경고가 0이라고 보고하지 않습니다. API 연결은 가능하�
 - 이메일/비밀번호, 가입 허용, Confirm email OFF, nickname metadata 정책입니다.
 - 프로필·온보딩·작물·농장·집중·중단·수확·집중 기록·수확 메모·휴식·과로 안내 API가 배포됐습니다. 수확 집계는 이제 숫자/capability=true입니다.
 - 로컬 303개 DB 테스트와 통합 테스트 통과, 원격 스키마·권한·익명 차단·Auth 공개 설정 확인했습니다. 원격 계정 생성 승인이 없어 로그인 사용자 E2E는 아직 미검증입니다.
-- 자동 수확 DB 함수는 있지만 Cron은 미설정입니다. 백그라운드 자동 수확이 켜진 상태는 아닙니다. 기록 초기화 API도 미구현입니다.
+- 자동 수확 Cron은 1분 주기로 ACTIVE이며 실제 예약 실행 2회 성공했습니다. 사용자 현지 다음 자정 이후 처리하고 배치·잠금에 따라 지연될 수 있습니다. 원격 실제 수확 성공 경로는 아직 미검증이고 기록 초기화 API는 미구현입니다.
 - 연동 중 응답·화면 계약 차이가 보이면 API 이름, 입력 형태, 오류 code/details와 재현 순서를 공유해주세요. 토큰·비밀번호는 공유하지 마세요.
