@@ -245,3 +245,11 @@ const { data, error } = await supabase
 내부 성공 응답은 `{ "saved": true }`입니다. S13 판정과 앱 연동은 판정 규칙 확정 후 진행합니다. 그때까지 DB 함수 소유자만 실행할 수 있습니다.
 
 오류의 `details`는 필수 입력 누락·빈 메모에 `INVALID_INPUT`(PT400), 120자 초과에 `NOTE_TOO_LONG`(PT400), 인증 컨텍스트 누락에 `UNAUTHENTICATED`(PT401), 없거나 타인 소유인 수확 ID에 `HARVEST_NOT_FOUND`(PT404)를 사용합니다.
+
+### 수확 후 휴식 시작
+
+인증된 사용자는 `supabase.rpc('start_rest', { p_harvest_id })`를 POST로 호출합니다. 성공 응답은 UTC 시각 문자열을 담은 `{ rest_ends_at, server_now }`입니다. 본인 수동 수확에서 새 휴식을 시작하면 서버 시각으로부터 5분 뒤에 종료합니다.
+
+같은 수확 ID는 최초 종료 시각과 현재 서버 시각을 반환합니다. 최초 종료 시각은 만료 이후나 새 집중 세션 생성 이후에도 유지됩니다. 새 휴식은 자동 수확, 활성 집중(`focusing` 또는 `paused`), 다른 진행 중인 휴식이 있으면 `PT409 / INVALID_STATE`로 거부합니다. NULL ID는 `PT400 / INVALID_INPUT`, 없거나 타인 소유인 ID는 `PT404 / HARVEST_NOT_FOUND`입니다. 인증 컨텍스트가 없으면 함수 본문에서 `PT401 / UNAUTHENTICATED`를 반환하고, 익명 HTTP 호출은 실행 권한에서 차단합니다.
+
+앱은 `max(0, rest_ends_at - server_now)`로 남은 시간을 표시합니다. 휴식 시작 시각은 종료 시각에서 5분을 빼서 계산할 수 있습니다. 연속 집중 시간의 실제 초기화는 누적 정책 확정 후 연결합니다. 현재 집중 기록과 수확 횟수는 그대로 유지되며, 새 집중 시작은 기존 `start_focus()` 정책을 따릅니다.

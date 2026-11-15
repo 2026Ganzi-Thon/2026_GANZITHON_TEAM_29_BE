@@ -379,6 +379,34 @@ try {
     replant.data.session_id,
   )
 
+  // Finish a second session through the normal RPC flow for a manual harvest.
+  runLocalSql(`update public.focus_sessions set started_at = clock_timestamp() - interval '601 seconds'
+    where id = '${replant.data.session_id}'`)
+  const restReady = await userA.client.rpc('finalize_my_focus')
+  assert.equal(restReady.error, null)
+  assert.equal(restReady.data.status, 'ripe')
+  // Keep the fixture before its automatic harvest deadline even near midnight.
+  runLocalSql(`update public.focus_sessions set auto_harvest_at = clock_timestamp() + interval '1 hour'
+    where id = '${replant.data.session_id}'`)
+  const manualHarvest = await userA.client.rpc('harvest_crop', { p_session_id: replant.data.session_id })
+  assert.equal(manualHarvest.error, null)
+  assert.equal(manualHarvest.data.auto_harvested, false)
+  const restArgs = { p_harvest_id: manualHarvest.data.harvest_id }
+  const foreignRest = await userB.client.rpc('start_rest', restArgs)
+  assert.equal(foreignRest.error?.details, 'HARVEST_NOT_FOUND')
+  const anonymousRest = await rawRpc('start_rest', restArgs)
+  assert.equal(anonymousRest.status, 401)
+  assert.equal(anonymousRest.body.code, '42501')
+  const [firstRest, concurrentRest] = await Promise.all([
+    userA.client.rpc('start_rest', restArgs),
+    restoredClient.rpc('start_rest', restArgs),
+  ])
+  assert.equal(firstRest.error, null)
+  assert.equal(concurrentRest.error, null)
+  assert.equal(firstRest.data.rest_ends_at, concurrentRest.data.rest_ends_at)
+  assert.equal(Math.max(...[firstRest, concurrentRest].map(({ data }) =>
+    Date.parse(data.rest_ends_at) - Date.parse(data.server_now))), 300_000)
+
   const profileCases = [
     [userA, '테스트🌱농부'],
     [userB, '농부'],
@@ -524,7 +552,7 @@ try {
   assert.equal(oldTokenRequest.status, 200, 'Existing access JWT remains valid until expiry after signout')
 
   console.log(
-    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, farm read projection, focus session restore, transitions, finalization and stop preview, harvest and notice acknowledgement, crops, error objects/status, JWT, signout)',
+    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, farm read projection, focus session restore, transitions, finalization and stop preview, harvest and notice acknowledgement, post-harvest rest, crops, error objects/status, JWT, signout)',
   )
 } finally {
   await Promise.all(clients.map((client) => client.auth.signOut().catch(() => {})))
