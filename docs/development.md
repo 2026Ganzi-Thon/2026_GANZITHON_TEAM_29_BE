@@ -35,3 +35,23 @@
 - secret key, legacy service-role key, DB 비밀번호, access token은 클라이언트나 저장소에 노출하지 않습니다.
 - publishable key는 공개 클라이언트용이며, 데이터 권한은 RLS로 제한합니다.
 - 실제 사용자 데이터는 seed나 테스트 fixture로 사용하지 않습니다.
+
+## S13 수확 메모 판정
+
+Figma v1.0의 1-9, S10, S13 기준으로 S10 메모 저장 시 검사합니다. 초기 후보는 `죽고 싶`, `자살`, `사라지고 싶`, `살기 싫`, `끝내고 싶`입니다. 최종 승인 목록과 확장 규칙은 협의 중입니다. 목록을 변경할 때 이 문서와 신규 SQL 마이그레이션 및 테스트를 함께 갱신합니다.
+
+입력 앞뒤 공백을 제거한 뒤 PostgreSQL `char_length`로 길이를 검사하고 `strpos`로 정확한 부분 문자열을 찾습니다. 내부 공백과 구두점은 원형을 유지하고, 대소문자 변환과 유니코드 정규화는 수행하지 않습니다. 후보가 문장 안에 그대로 있으면 위치와 관계없이 감지합니다. 인용이나 부정 문맥에서도 감지될 수 있고 띄어쓰기 변형이나 목록 밖 표현은 놓칠 수 있습니다. 이 결과는 S13 안내 표시 여부에만 쓰며 사용자 상태를 진단하거나 판단하는 데 사용하지 않습니다.
+
+## S12 운영 점검
+
+기존 시간대 트리거는 INSERT와 timezone UPDATE에 적용됩니다. 배포 전에 다음 읽기 전용 쿼리로 보정 검토가 필요한 과거 행을 확인합니다.
+
+```sql
+select p.id, p.timezone
+from public.profiles p
+where not exists (
+  select 1 from pg_catalog.pg_timezone_names z where z.name = p.timezone
+);
+```
+
+장기간 이력을 보유한 계정은 운영과 비슷한 스테이징에서 `private.focus_streak_seconds` 내부의 두 SELECT를 각각 `EXPLAIN (ANALYZE, BUFFERS)`로 확인합니다. 마지막 휴식을 구하는 `max(rest_ends_at)` 조인의 처리 행 수와, 종료된 세션을 최신순으로 읽는 쿼리의 `focus_sessions_streak_history` 사용 여부를 확인합니다. 휴식이 없는 계정과 짧은 공백으로 이력이 길게 연결된 계정을 포함합니다. 독립 SELECT 실행 계획은 루프의 조기 종료를 반영하지 않으므로 읽기 전용 후보 조회 지연도 함께 측정합니다. ANALYZE는 쿼리를 실제 실행하므로 운영 트래픽이 많은 시간대와 안내 기록을 쓰는 획득 RPC에는 사용하지 않습니다.

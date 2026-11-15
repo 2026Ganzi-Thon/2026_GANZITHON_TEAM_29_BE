@@ -342,13 +342,23 @@ try {
   const ack = await userA.client.rpc('ack_auto_harvest_notice', ackArgs)
   assert.equal(ack.error, null)
   assert.equal(ack.data.acknowledged_count, 1)
-  for (const token of [undefined, userA.token]) {
-    const gatedNote = await rawRpc('save_harvest_note', {
-      p_harvest_id: ackArgs.p_harvest_ids[0], p_note: '테스트 메모',
-    }, token)
-    assert.equal(gatedNote.status, token ? 403 : 401)
-    assert.equal(gatedNote.body.code, '42501')
-  }
+  const noteArgs = { p_harvest_id: ackArgs.p_harvest_ids[0], p_note: '  테스트 메모  ' }
+  const anonymousNote = await rawRpc('save_harvest_note', noteArgs)
+  assert.equal(anonymousNote.status, 401)
+  assert.equal(anonymousNote.body.code, '42501')
+  const foreignNote = await userB.client.rpc('save_harvest_note', { ...noteArgs, p_note: '자살' })
+  assert.equal(foreignNote.error?.details, 'HARVEST_NOT_FOUND')
+  const savedNote = await userA.client.rpc('save_harvest_note', noteArgs)
+  assert.equal(savedNote.error, null)
+  assert.deepEqual(savedNote.data, { saved: true, guidance_required: false })
+  const guidance = await userA.client.rpc('save_harvest_note', { ...noteArgs, p_note: '죽고 싶' })
+  assert.equal(guidance.error, null)
+  assert.deepEqual(guidance.data, { saved: false, guidance_required: true })
+  const longNote = await userA.client.rpc('save_harvest_note', { ...noteArgs, p_note: '가'.repeat(51) })
+  assert.equal(longNote.error?.details, 'NOTE_TOO_LONG')
+  const storedNote = await userA.client.from('harvests').select('note').eq('id', noteArgs.p_harvest_id).single()
+  assert.equal(storedNote.error, null)
+  assert.equal(storedNote.data.note, '테스트 메모')
   const acknowledgedNotice = await unreadHarvests(userA.client)
   assert.equal(acknowledgedNotice.error, null)
   assert.deepEqual(acknowledgedNotice.data, [])
@@ -543,6 +553,30 @@ try {
     message: 'NOT_FOUND',
   })
 
+  // Make the one active session eligible without waiting for the threshold.
+  const streak = await userA.client.rpc('start_focus', {
+    p_plot_id: session.plot_id, p_crop_id: session.crop_id,
+  })
+  assert.equal(streak.error, null)
+  const streakSessionId = streak.data.session_id
+  const streakArgs = { p_session_id: streakSessionId }
+  runLocalSql(`update public.focus_sessions
+    set target_seconds = 7200, started_at = clock_timestamp() - interval '91 minutes',
+      paused_duration = interval '0'
+    where id = '${streakSessionId}' and status = 'focusing'`)
+  const streakCandidate = await userA.client.rpc('get_active_focus')
+  assert.equal(streakCandidate.error, null)
+  assert.equal(streakCandidate.data.show_overwork_notice, true)
+  const foreignClaim = await userB.client.rpc('claim_overwork_notice', streakArgs)
+  assert.equal(foreignClaim.error, null)
+  assert.equal(foreignClaim.data.show_overwork_notice, false)
+  const claims = await Promise.all([
+    userA.client.rpc('claim_overwork_notice', streakArgs),
+    restoredClient.rpc('claim_overwork_notice', streakArgs),
+  ])
+  for (const claim of claims) assert.equal(claim.error, null)
+  assert.equal(claims.filter(({ data }) => data.show_overwork_notice).length, 1)
+
   const oldAccessToken = userA.token
   const signout = await userA.client.auth.signOut()
   assert.equal(signout.error, null)
@@ -552,7 +586,7 @@ try {
   assert.equal(oldTokenRequest.status, 200, 'Existing access JWT remains valid until expiry after signout')
 
   console.log(
-    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, farm read projection, focus session restore, transitions, finalization and stop preview, harvest and notice acknowledgement, post-harvest rest, crops, error objects/status, JWT, signout)',
+    'Auth/RPC integration: PASS (7 users, profile boundaries, RLS, concurrent onboarding, concurrent farm initialization, farm read projection, focus session restore, transitions, finalization and stop preview, harvest and notice acknowledgement, post-harvest rest, harvest note guidance, concurrent S12 claim, crops, error objects/status, JWT, signout)',
   )
 } finally {
   await Promise.all(clients.map((client) => client.auth.signOut().catch(() => {})))

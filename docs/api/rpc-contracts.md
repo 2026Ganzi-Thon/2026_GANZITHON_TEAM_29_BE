@@ -149,7 +149,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - 프로필이 없으면 `PT404`, 익명 호출은 실행 권한이 없어 `42501`입니다.
 - 농장 상태 조회는 후속 `get_my_farm()`이 담당합니다.
 
-`preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `cancel_stop_focus(p_stop_token)`은 아래 중도 종료 계약을 따릅니다. `harvest_crop(p_session_id)`, `process_due_harvests()`, `ack_auto_harvest_notice(p_harvest_ids)`, `save_harvest_note(p_harvest_id, p_note)`, `start_rest(p_harvest_id)`, `reset_farm_history()`의 함수명과 입력명은 유지하며 세부 반환 형식은 B가 제안하고 A/프론트엔드와 확정하기 전까지 `TBD`입니다.
+`preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `cancel_stop_focus(p_stop_token)`은 아래 중도 종료 계약을 따릅니다. `harvest_crop(p_session_id)`, `process_due_harvests()`, `ack_auto_harvest_notice(p_harvest_ids)`, `start_rest(p_harvest_id)`, `reset_farm_history()`의 함수명과 입력명은 유지하며 세부 반환 형식은 B가 제안하고 A/프론트엔드와 확정하기 전까지 `TBD`입니다.
 
 ## 상태
 
@@ -186,7 +186,10 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - `start_focus()`는 본인 세션을 정리한 후 밭 점유와 활성 세션을 검사합니다. 목표 도달은 먼저 `ripe`로 확정하며 기록 시간은 목표 초로 제한합니다. 목표 미달인 일시정지가 24시간 이상이면 `seed_saved`로 확정하고, 휴식을 제외한 집중 시간을 저장합니다. 0초도 유효합니다.
 - `ripe`는 밭을 계속 점유하고 `seed_saved`는 밭을 비웁니다. 시작 요청이 오류로 끝나면 그 요청의 상태 정리도 롤백됩니다.
 - **재접속 연동 제안** · 인증 후 `supabase.rpc('finalize_my_focus')`를 POST로 호출하고 성공하면 `get_active_focus()`와 농장 조회를 수행합니다. 인자는 없고, 이번 호출에서 확정된 `{ session_id, status, focused_seconds }` 또는 `null`을 반환합니다. 이름과 앱 호출 위치는 A·프론트엔드 검토 대상입니다. 이 호출의 커밋은 후속 조회나 시작과 독립적입니다.
-- `show_overwork_notice`는 세션이 없으면 `false`입니다. 활성 세션에도 현재는 임시로 `false`를 반환하며, 표시 조건과 표시 이력 정책은 결정 대기입니다.
+- `show_overwork_notice`는 S06에서 안내를 표시할 수 있는 후보입니다. 진행 중인 세션의 소수 초까지 포함한 연속 집중 시간이 5,400초를 초과하고, 목표에 아직 도달하지 않은 `focusing` 세션이며, 프로필 시간대의 오늘 날짜에 안내를 획득하지 않은 경우 `true`입니다. 조회 자체는 안내 기록을 저장하지 않습니다. 과거 프로필의 시간대가 유효하지 않으면 세션은 그대로 반환하고 안내 후보와 획득 결과는 `false`입니다.
+- S06에서 90분을 넘는 동안 화면을 유지하면 앱이 `get_active_focus()`를 다시 호출합니다. 후보가 `true`이면 인증된 사용자가 POST `claim_overwork_notice(p_session_id uuid)`를 호출합니다. 성공 응답은 `{ "show_overwork_notice": boolean }`이며 `true`인 요청만 S12를 표시합니다. 없거나 타인 소유이거나 자격을 잃은 세션 및 이미 획득한 날짜는 `false`입니다. 인증 컨텍스트와 필수 ID 오류는 각각 PT401, PT400입니다.
+- 서버는 트랜잭션에서 표시 권한 획득을 기록합니다. 화면 렌더링 전 앱이 종료되거나 응답을 잃으면 그날 재요청은 `false`입니다. 여러 기기가 동시에 요청해도 프로필 시간대 기준 하루 한 요청만 `true`를 받습니다. 안내는 세션을 중단하거나 차단하지 않습니다.
+- 종료된 세션의 실제 집중 합에 진행 중인 세션의 실제 경과를 더합니다. 세션 간 공백이 30분 이상이면 이전 합을 제외합니다. 같은 세션의 S07 일시정지 시간은 합계에서 제외하며 S11 초기화로 처리하지 않습니다. 종료 시각을 복원할 수 없는 과거 세션을 만나면 그 세션과 앞선 기록은 합산하지 않습니다.
 
 ### 중도 종료 (Issue #11)
 
@@ -240,11 +243,11 @@ const { data, error } = await supabase
 
 ### 수확 메모 저장
 
-`save_harvest_note(p_harvest_id uuid, p_note text)`는 내부 검증 단계입니다. 로그인 컨텍스트와 수확 소유권을 검사하고, 앞뒤 공백을 제거한 1~120자 메모를 저장합니다. 같은 내용의 재요청도 성공하며, 다른 유효한 내용은 기존 메모를 덮어씁니다. 실패한 요청은 기존 메모를 보존합니다.
+인증된 사용자는 S10에서 메모를 저장할 때 `save_harvest_note(p_harvest_id uuid, p_note text)`를 호출합니다. 본인 수확 기록에 앞뒤 공백을 제거한 1~50자 메모를 저장합니다. 같은 내용의 재요청도 성공하며, 다른 유효한 내용은 기존 메모를 덮어씁니다. 이전에 저장된 51~120자 메모는 보존합니다.
 
-내부 성공 응답은 `{ "saved": true }`입니다. S13 판정과 앱 연동은 판정 규칙 확정 후 진행합니다. 그때까지 DB 함수 소유자만 실행할 수 있습니다.
+저장 성공은 `{"saved":true,"guidance_required":false}`를 반환합니다. 초기 후보 표현이 감지되면 기존 메모를 보존하고 `{"saved":false,"guidance_required":true}`를 반환합니다. 앱은 이 응답으로 S13을 표시합니다. 응답에는 메모 원문이 포함되지 않습니다. 판정 규칙은 [개발 문서](../development.md#s13-수확-메모-판정)를 따릅니다.
 
-오류의 `details`는 필수 입력 누락·빈 메모에 `INVALID_INPUT`(PT400), 120자 초과에 `NOTE_TOO_LONG`(PT400), 인증 컨텍스트 누락에 `UNAUTHENTICATED`(PT401), 없거나 타인 소유인 수확 ID에 `HARVEST_NOT_FOUND`(PT404)를 사용합니다.
+오류의 `details`는 필수 입력 누락·빈 메모에 `INVALID_INPUT`(PT400), 50자 초과에 `NOTE_TOO_LONG`(PT400), 인증 컨텍스트 누락에 `UNAUTHENTICATED`(PT401), 없거나 타인 소유인 수확 ID에 `HARVEST_NOT_FOUND`(PT404)를 사용합니다. 익명 요청은 RPC 실행 권한 검사에서 차단됩니다.
 
 ### 수확 후 휴식 시작
 
@@ -252,4 +255,4 @@ const { data, error } = await supabase
 
 같은 수확 ID는 최초 종료 시각과 현재 서버 시각을 반환합니다. 최초 종료 시각은 만료 이후나 새 집중 세션 생성 이후에도 유지됩니다. 새 휴식은 자동 수확, 활성 집중(`focusing` 또는 `paused`), 다른 진행 중인 휴식이 있으면 `PT409 / INVALID_STATE`로 거부합니다. NULL ID는 `PT400 / INVALID_INPUT`, 없거나 타인 소유인 ID는 `PT404 / HARVEST_NOT_FOUND`입니다. 인증 컨텍스트가 없으면 함수 본문에서 `PT401 / UNAUTHENTICATED`를 반환하고, 익명 HTTP 호출은 실행 권한에서 차단합니다.
 
-앱은 `max(0, rest_ends_at - server_now)`로 남은 시간을 표시합니다. 휴식 시작 시각은 종료 시각에서 5분을 빼서 계산할 수 있습니다. 연속 집중 시간의 실제 초기화는 누적 정책 확정 후 연결합니다. 현재 집중 기록과 수확 횟수는 그대로 유지되며, 새 집중 시작은 기존 `start_focus()` 정책을 따릅니다.
+앱은 `max(0, rest_ends_at - server_now)`로 남은 시간을 표시합니다. 휴식 시작 시각은 종료 시각에서 5분을 빼서 계산할 수 있습니다. 최초 휴식 시작 시각을 연속 집중 초기화 경계로 사용합니다. 같은 수확 ID 재요청은 최초 경계를 유지합니다. 현재 집중 기록과 수확 횟수는 그대로 유지되며, 새 집중 시작은 기존 `start_focus()` 정책을 따릅니다.
