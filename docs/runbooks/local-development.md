@@ -43,10 +43,12 @@ npm run db:stop
 ```bash
 npm run db:reset
 npm run db:test
+npm run test:integration
 npm run db:lint
+npm audit
 ```
 
-테스트 SQL이 하나도 없으면 `db:test`는 `Result: NOTESTS`와 종료 코드 1을 반환합니다. 이는 테스트 통과가 아니라 테스트 미작성 상태입니다.
+`test:integration`은 로컬 DB 컨테이너가 실행 중이어야 하며 원격 프로젝트를 사용하지 않습니다.
 
 ## 2026-11-10 검증 상태
 
@@ -56,7 +58,7 @@ npm run db:lint
 - Studio와 Mailpit 접속 확인
 - 로컬 DB reset 및 seed 실행 확인
 - DB lint 오류 0건
-- pgTAP 테스트 파일 미작성으로 `NOTESTS`
+- Phase 2 A pgTAP과 Auth/RPC 통합 테스트는 [별도 검증 런북](a-foundation-verification.md)에 기록
 
 ## 현재 BLOCKED 항목
 

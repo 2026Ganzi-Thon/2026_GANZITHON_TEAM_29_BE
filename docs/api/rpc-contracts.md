@@ -1,72 +1,258 @@
 # RPC 계약
 
-이 문서는 확정된 함수명과 입력 규칙만 고정합니다. 반환 타입, 상세 필드, 미제공 입력 타입과 공통 오류 코드 목록은 합의 전까지 `TBD`입니다.
+이 문서는 프론트엔드와 A/B 백엔드가 공유하는 계약입니다. 명시된 RPC 계약을 적용하며, 미확정 반환 형식과 제약은 `TBD`입니다.
 
 ## 공통 규칙
 
-- RPC 함수명은 `snake_case`를 사용합니다.
-- 입력 매개변수는 `p_` 접두사를 사용합니다.
-- 사용자 ID는 입력받지 않고 Supabase 인증 컨텍스트에서 확인합니다.
-- 집중 시간은 초 단위입니다.
-- 시각은 UTC로 저장합니다.
-- 기록 날짜와 자동 수확 판정은 사용자 시간대를 기준으로 합니다.
+- RPC 함수명은 `snake_case`, 입력 매개변수는 `p_` 접두사를 사용합니다.
+- `user_id`는 `auth.users.id` UUID이며 `profiles.id`와 같습니다. 사용자 ID는 입력받지 않고 `auth.uid()`로 확인합니다.
+- `plot_id`, `crop_id`, `session_id`는 모두 UUID입니다.
+- `target_seconds`는 심기 시점의 `crops.target_seconds`를 세션에 복사합니다. 클라이언트 값을 신뢰하지 않습니다.
+- `target_seconds`는 `> 0`, `focused_seconds`는 서버가 확정하는 `>= 0` 정수 초입니다.
+- 집중 시작 직후 중단하면 `focused_seconds = 0`인 `seed_saved` 기록을 허용합니다. 서버는 이를 1초로 보정하지 않으며 음수는 거부합니다.
+- 시각은 UTC `TIMESTAMPTZ`로 저장하고, `record_date`는 사용자 시간대의 세션 시작일입니다.
 - 세션당 수확은 한 번만 허용합니다.
-- 공통 오류 코드 목록과 응답 형태는 `TBD`이며, 확정 후 모든 RPC가 동일하게 유지합니다.
-- 아래 함수명과 입력 매개변수는 별도 계약 변경 없이 수정하지 않습니다.
+
+## A/B 공통 데이터 계약
+
+| 항목 | 계약 |
+|---|---|
+| `farm_plots.id` | UUID (`plot_id`) |
+| `farm_plots.plot_index` | 사용자별 1부터 시작; 초기 1~12, 추후 4칸 단위 확장 |
+| `farm_plots` 유일성 | `UNIQUE (user_id, plot_index)`, `UNIQUE (user_id, id)` |
+| `focus_sessions.id` | UUID (`session_id`) |
+| `focus_sessions.plot_id` | `(user_id, plot_id)` → `farm_plots(user_id, id)` |
+| `focus_sessions.crop_id` | UUID → `crops.id` |
+| `harvests.session_id` | `UNIQUE` |
+
+상세한 소유권·마이그레이션 계약은 [A/B 연동 문서](../integration/a-to-b-contract.md)를 따릅니다. B의 농장 기반 마이그레이션은 `farm_plots`를 생성합니다.
 
 ## 인증
 
-인증은 RPC가 아니라 Supabase Auth SDK를 사용합니다.
+```js
+await supabase.auth.signUp({ email, password, options: { data: { nickname } } })
+await supabase.auth.signInWithPassword({ email, password })
+await supabase.auth.getSession()
+await supabase.auth.signOut()
+```
 
-| 작업 | SDK 메서드 |
-|---|---|
-| 회원가입 | `signUp` |
-| 로그인 | `signInWithPassword` |
-| 세션 조회 | `getSession` |
-| 로그아웃 | `signOut` |
+`nickname`은 표시 정보로만 사용하고 소유권 판단에 사용하지 않습니다. 신규 가입을 허용하고 Confirm email은 OFF이며 이메일 인증 링크를 사용하지 않습니다. Staging Dashboard 저장은 완료됐지만 원격 회원가입 동작은 아직 실측하지 않았습니다. Redirect URL과 Auth 상세 오류 매핑은 A/프론트엔드가 별도로 확정합니다.
 
-이메일 확인 여부, 프로필 자동 생성 시점, redirect URL 및 상세 오류 매핑은 `TBD`입니다.
+## 오류 계약
 
-## A 담당 RPC
+`supabase-js` DB 호출의 `error`는 `code`, `message`, `details`, `hint` 네 필드를 제공하며 HTTP status를 노출하지 않습니다. HTTP status는 네트워크 응답이나 커스텀 `fetch`로 확인합니다.
 
-| 함수 | 입력 | 반환 | 설명 |
-|---|---|---|---|
-| `get_my_profile()` | 없음 | `TBD` | 인증 사용자의 프로필 조회 |
-| `complete_onboarding()` | 없음 | `TBD` | 온보딩 완료 처리. 상세 필드 규칙은 `TBD` |
-| `list_crops(p_energy)` | `p_energy`: 타입/허용 범위 `TBD` | `TBD` | 에너지 조건에 맞는 작물 목록 조회 |
-| `get_my_farm()` | 없음 | `TBD` | 인증 사용자의 농장 상태 조회 |
-| `get_focus_history(p_period)` | `p_period`: 타입/허용 값 `TBD` | `TBD` | 사용자 시간대 기준 집중 기록 조회 |
+| 비즈니스 오류 | `error.code` | `error.message` | HTTP | 적용 |
+|---|---|---|---:|---|
+| `UNAUTHENTICATED` | `PT401` | `UNAUTHENTICATED` | 401 | 함수 본문에 도달했지만 `auth.uid()`가 없음 |
+| `NOT_FOUND` | `PT404` | `NOT_FOUND` | 404 | 인증 사용자의 프로필 없음 |
+| `INVALID_INPUT` | `22023` | `INVALID_INPUT` | 400 | 허용되지 않은 입력 |
+| `INVALID_STATE` | `PT409` | 표시 문구 | 409 | 집중 세션 RPC의 `details`에 식별자 포함 |
+
+익명 호출은 함수 `EXECUTE`가 없어 본문에 도달하지 않습니다. 실제 응답은 HTTP 401, `code = 42501`, `message = permission denied for function ...`입니다. 프론트엔드는 세션이 없는 `42501` 응답을 `UNAUTHENTICATED`로 정규화합니다. `AUTH_REQUIRED`, `PROFILE_NOT_FOUND`는 더 이상 사용하지 않습니다.
+
+### 프론트엔드 정규화 규칙
+
+`message`보다 `code`를 먼저 판단합니다.
+
+```js
+function normalizeBackendError(error, hasSession) {
+  if (error.code === 'PGRST301' || error.code === 'PT401') return 'UNAUTHENTICATED'
+  if (error.code === '42501' && !hasSession) return 'UNAUTHENTICATED'
+  if (error.code === '22023') return 'INVALID_INPUT'
+  if (error.code === 'PT404') return 'NOT_FOUND'
+  return 'UNKNOWN'
+}
+```
+
+- 로그아웃/JWT 누락: 클라이언트가 토큰을 보내지 않아 `42501`; `UNAUTHENTICATED`로 정규화
+- 변조·파싱 불가 JWT: `PGRST301`; `UNAUTHENTICATED`로 정규화
+- 세션이 있는 `42501`: 권한 설정 오류이므로 사용자 문구로 숨기고 운영 오류로 기록
+- 집중 세션 상태 전이 오류는 `PT409`와 `details`로 분기합니다.
+
+`signOut()`은 클라이언트 세션을 제거하지만 이미 발급된 access JWT는 만료 전까지 유효할 수 있습니다. 로그아웃 후 토큰을 보관·재사용하지 않습니다.
+
+## Phase 2 A RPC
+
+### `get_my_profile()`
+
+- 입력: 없음
+- 반환: `[{ nickname, timezone, onboarded, onboarded_at }]`
+- 내부 컬럼 `id`, `created_at`은 반환하지 않음
+
+```js
+const { data, error } = await supabase.rpc('get_my_profile')
+// data: [{ nickname: '농부', timezone: 'Asia/Seoul', onboarded: false, onboarded_at: null }]
+```
+
+### `complete_onboarding()`
+
+- 입력: 없음
+- 반환: 최초 완료 시각 `TIMESTAMPTZ` 스칼라
+- 반복·동시 호출: 모두 같은 최초 시각 반환
+
+```js
+const { data, error } = await supabase.rpc('complete_onboarding')
+// data: '2026-11-10T15:30:00+00:00'
+```
+
+농장 초기화 흐름에서는 멱등적인 `ensure_farm()`을 먼저 호출하고, 12칸 확인 후 `complete_onboarding()`을 마지막 완료 표시로 호출합니다. 둘은 단일 트랜잭션이 아니므로 실패하면 같은 순서를 다시 실행합니다. 이미 생성된 밭 ID와 최초 온보딩 시각은 유지됩니다.
+
+### `list_crops(p_energy)`
+
+- `p_energy`: `TEXT`, `low | medium | high | NULL`
+- 반환: `[{ crop_id, name, target_seconds, recommended, sort_order }]`
+- `sort_order ASC`; `NULL`은 6종 모두 `recommended = false`
+
+```js
+const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
+```
+
+## A 조회 RPC
+
+| 함수 | 입력 | 상태 |
+|---|---|---|
+| `get_my_farm()` | 없음 | 구현·검증 완료 |
+| `get_focus_history(p_period)` | `today | week | all` | 집중 시간·씨앗·수확 집계 구현 |
+
+권장안·예시·결정 대기 항목은 [조회 모델 설계](read-model-design.md)에 기록합니다.
+
+### `get_focus_history(p_period)`
+
+- 반환: `{ period, range, summary, items, capabilities }` JSON 객체
+- `today`: 사용자 시간대의 오늘 1개 일별 항목
+- `week`: 월요일~일요일 7개 일별 항목
+- `all`: 확정 기록이 존재하는 날짜만 오름차순
+- 집계 상태: `seed_saved | ripe | harvested`; 활성 `focusing | paused` 제외
+- `harvest_count`는 세션의 `record_date` 기준으로 실제 수확 기록을 집계합니다. 수동·자동 수확 모두 1건이며, 기록이 없으면 `0`을 반환합니다. `capabilities.harvest_count`는 `true`입니다.
+- 잘못된 기간은 `22023 / INVALID_INPUT`
+
+### `get_my_farm()`
+
+- 반환: `[{ plot_id, plot_index, farm_status, session_id, session_status, crop_id, crop_name, target_seconds }]`
+- `plot_index ASC`; 밭이 없으면 빈 배열
+- `focusing | paused → growing`, `ripe → ripe`, `seed_saved | harvested → empty`
+- `empty`의 세션·작물·목표 시간 필드는 `NULL`
+- 밭 생성, 세션 상태 확정, 실시간 타이머 계산을 하지 않음
+- 실시간 `focused_seconds`, `remaining_seconds`는 `get_active_focus()` 사용
+- 자동 수확 알림은 스키마 확정 후 후속 계약으로 추가
+- `20261114054245_b_finalize_focus.sql`부터 점유 인덱스와 `start_focus()`는 `harvested`를 제외하며, 수확 기록을 보존한 재심기를 허용
+- 자동 수확 알림 응답은 [별도 계약 제안](auto-harvest-notice-proposal.md)에서 비교하며 합의 전 반환 타입을 변경하지 않음
 
 ## B 담당 RPC
 
-| 함수 | 입력 | 반환 | 설명 |
-|---|---|---|---|
-| `ensure_farm()` | 없음 | `TBD` | 사용자 농장 보장 |
-| `start_focus(p_plot_id, p_crop_id)` | 두 ID의 타입 `TBD` | `TBD` | 집중 세션 시작 |
-| `get_active_focus()` | 없음 | `TBD` | 활성 집중 세션 조회 |
-| `pause_focus(p_session_id)` | ID 타입 `TBD` | `TBD` | 집중 일시정지 |
-| `resume_focus(p_session_id)` | ID 타입 `TBD` | `TBD` | 집중 재개 |
-| `preview_stop_focus(p_session_id)` | ID 타입 `TBD` | `TBD` | 집중 중단 결과 미리보기 |
-| `confirm_stop_focus(p_stop_token)` | 토큰 타입/만료 규칙 `TBD` | `TBD` | 미리보기 토큰으로 집중 중단 확정 |
-| `harvest_crop(p_session_id)` | ID 타입 `TBD` | `TBD` | 세션당 한 번만 수확 |
-| `process_due_harvests()` | 없음 | `TBD` | 자동 수확 대상 처리 |
-| `ack_auto_harvest_notice(p_harvest_ids)` | ID 배열 타입 `TBD` | `TBD` | 자동 수확 알림 확인 |
-| `save_harvest_note(p_harvest_id, p_note)` | ID/메모 제약 `TBD` | `TBD` | 수확 메모 저장 |
-| `start_rest(p_harvest_id)` | ID 타입 `TBD` | `TBD` | 수확 후 휴식 시작 |
-| `reset_farm_history()` | 없음 | `TBD` | 기록 초기화. 삭제/보존 범위 `TBD` |
+### `ensure_farm()`
+
+- 입력: 없음
+- 반환: `[{ plot_id, plot_index }]` (UUID, INTEGER), `plot_index` 오름차순
+- 인증된 본인의 초기 밭 1~12번을 보장합니다. 반복·동시 호출에서도 기존 밭 ID를 유지합니다.
+- 프로필이 없으면 `PT404`, 익명 호출은 실행 권한이 없어 `42501`입니다.
+- 농장 상태 조회는 후속 `get_my_farm()`이 담당합니다.
+
+`preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `cancel_stop_focus(p_stop_token)`은 아래 중도 종료 계약을 따릅니다. `harvest_crop(p_session_id)`, `process_due_harvests()`, `ack_auto_harvest_notice(p_harvest_ids)`, `start_rest(p_harvest_id)`, `reset_farm_history()`의 함수명과 입력명은 유지하며 세부 반환 형식은 B가 제안하고 A/프론트엔드와 확정하기 전까지 `TBD`입니다.
 
 ## 상태
 
-확정 상태 값은 다음과 같습니다.
+- 세션: `focusing`, `paused`, `seed_saved`, `ripe`, `harvested`
+- 농장 표시: `empty`, `growing`, `ripe`
 
-- `focusing`
-- `paused`
-- `seed_saved`
-- `ripe`
-- `harvested`
+세션 상태 전이, 실패 롤백, 자동 수확 경계는 B/A 공동 결정 전까지 `TBD`입니다.
 
-각 상태가 적용되는 엔터티, 허용 전이, 종료 상태 및 실패 시 롤백 규칙은 `TBD`입니다.
+## 집중 세션 (Issue #4)
 
-## 계약 변경 절차
+- `start_focus(p_plot_id, p_crop_id)` (POST) → `{ session_id, plot_id, crop_id, status, started_at, target_seconds, server_now }`. 본인 빈 밭과 활성 작물만 허용하며, 사용자별 `focusing` 또는 `paused` 세션을 한 개로 제한합니다.
+- `get_active_focus()` (GET) → `{ session, server_now, show_overwork_notice }`. `session`은 `null` 또는 `{ session_id, plot_id, crop_id, status, started_at, paused_at, target_seconds, focused_seconds, remaining_seconds }`입니다.
+- `pause_focus(p_session_id)` (POST) → `{ session_id, status, paused_at, remaining_seconds, server_now }`. 이미 일시정지 상태면 기존 일시정지 시각을 반환합니다.
+- `resume_focus(p_session_id)` (POST) → `{ session_id, status, remaining_seconds, server_now }`. 이미 집중 중이고 목표 도달 전이면 누적 휴식 시간을 수정하지 않습니다.
 
-함수명, 입력명 또는 공통 규칙 변경은 프론트엔드와 A/B 백엔드 담당자 합의가 필요합니다. 변경 PR에는 호환성 영향과 마이그레이션 방법을 기록합니다.
+서버는 경과 시간에서 누적 휴식 시간을 뺀 뒤 초 단위로 내림합니다. 일시정지 중에는 `paused_at`을 계산 기준으로 사용합니다. `record_date`는 사용자 시간대 기준 시작일입니다.
+
+### 집중 세션 오류
+
+기존 A RPC는 `message`로 비즈니스 오류를 식별합니다. 집중 세션 RPC는 Notion 계약에 따라 `details`에 식별자를, `message`에 표시 문구를 둡니다. 프론트엔드는 집중 세션 응답의 `code`와 `details`를 사용합니다.
+
+| SQLSTATE / HTTP | details |
+| --- | --- |
+| PT400 / 400 | INVALID_INPUT |
+| PT401 / 401 | UNAUTHENTICATED |
+| PT404 / 404 | PLOT_NOT_FOUND, CROP_NOT_FOUND, SESSION_NOT_FOUND |
+| PT409 / 409 | PLOT_OCCUPIED, ACTIVE_SESSION_EXISTS, INVALID_STATE, PAUSE_EXPIRED |
+
+비활성 작물은 `CROP_NOT_FOUND`로 처리합니다. 익명 실행은 권한 계층에서 차단되며 기존과 동일하게 `42501`이 반환될 수 있습니다.
+
+### 완료·만료 및 과로 안내
+
+- 조회는 목표 도달과 24시간 일시정지 만료 세션을 숨기며 DB 상태를 변경하지 않습니다.
+- `start_focus()`는 본인 세션을 정리한 후 밭 점유와 활성 세션을 검사합니다. 목표 도달은 먼저 `ripe`로 확정하며 기록 시간은 목표 초로 제한합니다. 목표 미달인 일시정지가 24시간 이상이면 `seed_saved`로 확정하고, 휴식을 제외한 집중 시간을 저장합니다. 0초도 유효합니다.
+- `ripe`는 밭을 계속 점유하고 `seed_saved`는 밭을 비웁니다. 시작 요청이 오류로 끝나면 그 요청의 상태 정리도 롤백됩니다.
+- **재접속 연동 제안** · 인증 후 `supabase.rpc('finalize_my_focus')`를 POST로 호출하고 성공하면 `get_active_focus()`와 농장 조회를 수행합니다. 인자는 없고, 이번 호출에서 확정된 `{ session_id, status, focused_seconds }` 또는 `null`을 반환합니다. 이름과 앱 호출 위치는 A·프론트엔드 검토 대상입니다. 이 호출의 커밋은 후속 조회나 시작과 독립적입니다.
+- `show_overwork_notice`는 S06에서 안내를 표시할 수 있는 후보입니다. 진행 중인 세션의 소수 초까지 포함한 연속 집중 시간이 5,400초를 초과하고, 목표에 아직 도달하지 않은 `focusing` 세션이며, 프로필 시간대의 오늘 날짜에 안내를 획득하지 않은 경우 `true`입니다. 조회 자체는 안내 기록을 저장하지 않습니다. 과거 프로필의 시간대가 유효하지 않으면 세션은 그대로 반환하고 안내 후보와 획득 결과는 `false`입니다.
+- S06에서 90분을 넘는 동안 화면을 유지하면 앱이 `get_active_focus()`를 다시 호출합니다. 후보가 `true`이면 인증된 사용자가 POST `claim_overwork_notice(p_session_id uuid)`를 호출합니다. 성공 응답은 `{ "show_overwork_notice": boolean }`이며 `true`인 요청만 S12를 표시합니다. 없거나 타인 소유이거나 자격을 잃은 세션 및 이미 획득한 날짜는 `false`입니다. 인증 컨텍스트와 필수 ID 오류는 각각 PT401, PT400입니다.
+- 서버는 트랜잭션에서 표시 권한 획득을 기록합니다. 화면 렌더링 전 앱이 종료되거나 응답을 잃으면 그날 재요청은 `false`입니다. 여러 기기가 동시에 요청해도 프로필 시간대 기준 하루 한 요청만 `true`를 받습니다. 안내는 세션을 중단하거나 차단하지 않습니다.
+- 종료된 세션의 실제 집중 합에 진행 중인 세션의 실제 경과를 더합니다. 세션 간 공백이 30분 이상이면 이전 합을 제외합니다. 같은 세션의 S07 일시정지 시간은 합계에서 제외하며 S11 초기화로 처리하지 않습니다. 종료 시각을 복원할 수 없는 과거 세션을 만나면 그 세션과 앞선 기록은 합산하지 않습니다.
+
+### 중도 종료 (Issue #11)
+
+세 RPC 모두 인증된 POST 호출입니다. 입력과 응답은 다음과 같습니다.
+
+| RPC | JSON 요청 | JSON 응답 필드 |
+| --- | --- | --- |
+| `preview_stop_focus` | `{ "p_session_id": "<UUID>" }` | `session_id, stop_token, previewed_at, expires_at, focused_seconds, focus_minutes, progress_percent, result: "seed"` |
+| `confirm_stop_focus` | `{ "p_stop_token": "<token>" }` | `session_id, status: "seed_saved", result: "seed", focused_seconds, plot_status: "empty"` |
+| `cancel_stop_focus` | `{ "p_stop_token": "<token>" }` | `session_id, cancelled` |
+
+미리보기는 세션 잠금을 획득한 뒤 서버 시각으로 계산합니다. 목표 미달인 진행 중·일시정지 세션만 대상으로 하며 분과 퍼센트는 내림합니다. 토큰은 5분 유효하고 새 미리보기는 이전 미리보기를 무효화합니다. 확인 화면에서는 스냅샷을 표시합니다. 집중 중에는 서버 타이머가 계속 진행하고 일시정지는 그대로입니다.
+
+유효한 미리보기는 자동 확정을 보류합니다. 확인은 스냅샷의 집중 초를 기록하고 토큰을 소비하며 밭을 비웁니다. 같은 소유자의 소비 토큰 재시도는 같은 성공 응답을 반환합니다. `plot_status`는 확정 당시 결과이며 재시도 시 현재 밭 상태는 농장 조회에서 확인합니다. 실제 일시정지·재개 전이는 미리보기를 무효화합니다.
+
+'계속 키우기'나 창 닫기에는 취소 RPC를 호출합니다. `cancelled: true`는 미소비 토큰이 호출 후 취소 상태임을, `false`는 이미 확정됐음을 뜻합니다. 같은 토큰을 반복 취소해도 `true`를 반환하며 최초 취소 시각을 유지합니다. 재접속 취소를 위해 앱은 토큰을 해당 사용자 세션의 보안 저장소에 임시 보관합니다. 인증 복원 후 남은 토큰을 취소하고 `finalize_my_focus()`를 호출한 다음 농장과 활성 세션을 조회합니다. 토큰을 잃으면 서버의 5분 TTL이 지나야 보류가 풀립니다. 토큰 만료 시 창을 닫고 `finalize_my_focus()`를 호출한 뒤 재조회합니다. 조회는 읽기 전용입니다.
+
+오류는 기존 Focus 응답 형식을 따릅니다. 잘못된 입력은 `PT400 / INVALID_INPUT`, 없는 세션 또는 타인 세션은 `PT404 / SESSION_NOT_FOUND`, 알 수 없거나 타인 소유인 토큰은 `PT404 / STOP_TOKEN_NOT_FOUND`입니다. 미소비 토큰 만료는 `PT409 / STOP_TOKEN_EXPIRED`, 취소·교체·부적합한 세션 상태는 `PT409 / INVALID_STATE`입니다. 익명 역할은 함수 실행 권한이 없습니다.
+
+### 수확 및 자동 수확 안내
+
+| 함수 | JSON 요청 | JSON 응답 |
+| --- | --- | --- |
+| `harvest_crop(p_session_id uuid)` | `{ "p_session_id": "<uuid>" }` | `{ harvest_id, session_id, plot_id, crop_id, focused_seconds, harvested_at, auto_harvested }` |
+| `process_due_harvests()` | DB 내부 호출, 인자 없음 | `{ processed_count }` |
+| `ack_auto_harvest_notice(p_harvest_ids uuid[])` | `{ "p_harvest_ids": ["<uuid>"] }` | `{ acknowledged_count }` |
+
+`ripe`는 밭을 점유합니다. 수확 기록 생성과 `harvested` 전환을 함께 커밋하고 밭을 해제합니다. 세션당 수확 기록은 한 건입니다. 재요청은 최초 수확 결과를 반환합니다. 수확 기한에 도달한 요청은 예약 실행을 기다리는 중에도 자동 수확으로 기록합니다.
+
+목표에 도달한 실제 시각을 `ripe_at`으로 저장합니다. 확정 시점의 프로필 시간대를 적용해 해당 현지 날짜의 다음 자정을 `auto_harvest_at`으로 저장합니다. 기존 `ripe` 행은 세션 시작 시각, 누적 휴식, 목표 초로 완료 시각을 재구성합니다. 과거 시간대 스냅샷이 없어 마이그레이션 시점의 프로필 시간대를 사용합니다. 저장된 기한은 고정합니다.
+
+프로필의 신규 시간대는 PostgreSQL `pg_timezone_names`에 등록된 이름만 허용합니다. 기존 미등록 값은 운영자가 사용자 확인 후 수정할 수 있도록 보존합니다. 해당 세션의 완료 상태는 정상 확정되며 자동 수확 기한만 비워 둡니다. 프로필 수정 후 다음 예약 실행 또는 수확 요청에서 기한을 채웁니다. 기한을 계산할 수 없는 동안에는 명시적 수확 요청을 수동으로 기록합니다.
+
+예약 함수는 기존 상태 확정과 미리보기 보류 규칙을 사용합니다. 현재 DB 함수 소유자로 실행할 수 있으며 앱 역할의 실행 권한은 회수합니다. 운영 스케줄, 주기, 전용 DB 역할은 배포 전 확정합니다.
+
+수동 수확은 타인 또는 없는 세션에 `PT404 / SESSION_NOT_FOUND`, 미수확 상태가 `ripe`가 아니면 `PT409 / NOT_RIPE`를 반환합니다. 확인 요청의 빈 배열 및 null 원소는 `PT400 / INVALID_INPUT`이며, 본인 자동 수확에 속하지 않는 ID가 하나라도 있으면 `PT404 / AUTO_HARVEST_NOT_FOUND`로 전체를 거부합니다. 확인 시각은 최초 한 번만 기록합니다.
+
+농장 조회의 기존 밭 배열 계약을 사용합니다. 별도 조회 RPC를 합의하기 전에는 인증된 Supabase 클라이언트에서 본인의 미확인 ID를 조회할 수 있습니다.
+
+```js
+const { data, error } = await supabase
+  .from('harvests')
+  .select('id')
+  .eq('auto_harvested', true)
+  .is('notice_acknowledged_at', null)
+  .order('harvested_at')
+  .order('id')
+```
+
+성공하면 `[{ "id": "<uuid>" }]` 형식의 배열을 받습니다. 결과가 없으면 `[]`입니다. S03에서 실제 표시한 ID만 확인하고, 수확 응답이 `auto_harvested: true`이면 농장과 미확인 목록을 다시 조회합니다. RLS가 소유권을 검사합니다. 별도 조회 RPC는 추후 페이징이나 응답 계약이 필요할 때 합의합니다.
+
+### 수확 메모 저장
+
+인증된 사용자는 S10에서 메모를 저장할 때 `save_harvest_note(p_harvest_id uuid, p_note text)`를 호출합니다. 본인 수확 기록에 앞뒤 공백을 제거한 1~50자 메모를 저장합니다. 같은 내용의 재요청도 성공하며, 다른 유효한 내용은 기존 메모를 덮어씁니다. 이전에 저장된 51~120자 메모는 보존합니다.
+
+저장 성공은 `{"saved":true,"guidance_required":false}`를 반환합니다. 초기 후보 표현이 감지되면 기존 메모를 보존하고 `{"saved":false,"guidance_required":true}`를 반환합니다. 앱은 이 응답으로 S13을 표시합니다. 응답에는 메모 원문이 포함되지 않습니다. 판정 규칙은 [개발 문서](../development.md#s13-수확-메모-판정)를 따릅니다.
+
+오류의 `details`는 필수 입력 누락·빈 메모에 `INVALID_INPUT`(PT400), 50자 초과에 `NOTE_TOO_LONG`(PT400), 인증 컨텍스트 누락에 `UNAUTHENTICATED`(PT401), 없거나 타인 소유인 수확 ID에 `HARVEST_NOT_FOUND`(PT404)를 사용합니다. 익명 요청은 RPC 실행 권한 검사에서 차단됩니다.
+
+### 수확 후 휴식 시작
+
+인증된 사용자는 `supabase.rpc('start_rest', { p_harvest_id })`를 POST로 호출합니다. 성공 응답은 UTC 시각 문자열을 담은 `{ rest_ends_at, server_now }`입니다. 본인 수동 수확에서 새 휴식을 시작하면 서버 시각으로부터 5분 뒤에 종료합니다.
+
+같은 수확 ID는 최초 종료 시각과 현재 서버 시각을 반환합니다. 최초 종료 시각은 만료 이후나 새 집중 세션 생성 이후에도 유지됩니다. 새 휴식은 자동 수확, 활성 집중(`focusing` 또는 `paused`), 다른 진행 중인 휴식이 있으면 `PT409 / INVALID_STATE`로 거부합니다. NULL ID는 `PT400 / INVALID_INPUT`, 없거나 타인 소유인 ID는 `PT404 / HARVEST_NOT_FOUND`입니다. 인증 컨텍스트가 없으면 함수 본문에서 `PT401 / UNAUTHENTICATED`를 반환하고, 익명 HTTP 호출은 실행 권한에서 차단합니다.
+
+앱은 `max(0, rest_ends_at - server_now)`로 남은 시간을 표시합니다. 휴식 시작 시각은 종료 시각에서 5분을 빼서 계산할 수 있습니다. 최초 휴식 시작 시각을 연속 집중 초기화 경계로 사용합니다. 같은 수확 ID 재요청은 최초 경계를 유지합니다. 현재 집중 기록과 수확 횟수는 그대로 유지되며, 새 집중 시작은 기존 `start_focus()` 정책을 따릅니다.

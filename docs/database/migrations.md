@@ -1,31 +1,64 @@
-# 데이터베이스 마이그레이션 규칙
+# 데이터베이스 마이그레이션
 
-## 생성
+## 순서
 
-새 마이그레이션은 CLI로만 생성합니다.
+1. `20261110152140_a_foundation.sql`
+   - `profiles`, `crops`
+   - 회원가입 프로필 트리거
+   - `get_my_profile()`, `complete_onboarding()`, `list_crops(p_energy)`
+   - RLS, 명시적 `GRANT`/`REVOKE`
+   - 기본 작물 6종과 안정 UUID
+   - `PT401`/`PT404`/`22023` PostgREST 오류 매핑
+
+2. `20261113012151_b_farm_foundation.sql`
+   - `farm_plots`, 복합 소유권 제약, `ensure_farm()`
+3. `20261113020509_b_focus_sessions.sql`
+   - `focus_sessions`, 집중 시작·조회·일시정지·재개 RPC
+4. `20261113143508_a_farm_read_model.sql`
+   - 조회 전용 `get_my_farm()`
+   - 기존 RLS를 적용하는 `SECURITY INVOKER`
+   - 밭 생성·세션 상태 변경 없음; `seed_saved`, `harvested`는 비점유 기록
+5. `20261113145323_a_focus_history.sql`
+   - `get_focus_history(p_period)`
+   - 집중 시간·씨앗 일별 집계; 수확 집계는 B `harvests` 병합 후 후속 마이그레이션
+6. `20261114054245_b_finalize_focus.sql`
+   - 목표 달성·24시간 일시정지 만료 자동 확정과 `finalize_my_focus()`
+   - `harvested`를 점유에서 제외한 인덱스·`start_focus()` 계약
+7. `20261114070324_b_stop_focus.sql`
+   - 중도 종료 미리보기·확정·취소 RPC와 해시 토큰 저장소
+   - 5분 TTL, 멱등 확인, 상태 전이 시 미리보기 무효화
+
+일곱 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. `get_my_farm()`과 `get_focus_history()`는 B의 상태를 변경하지 않습니다. 수확·자동 수확·Cron은 후속 B 마이그레이션 전까지 Staging 배포 범위에서 제외합니다.
+
+## 생성 규칙
 
 ```bash
 npx supabase migration new <descriptive_name>
 ```
 
-타임스탬프 파일명을 직접 만들거나 병합된 파일을 수정하지 않습니다.
+- 타임스탬프 파일명을 직접 만들지 않습니다.
+- 병합된 마이그레이션은 수정하지 않고 새 파일로 변경합니다.
+- 다른 마이그레이션에 의존하는 PR은 선행 PR을 기록합니다.
+- 공통 타입, RLS, 권한, 마이그레이션 순서는 A/B 모두 리뷰합니다.
 
-## 의존성과 소유권
-
-- A는 프로필과 작물 기반을 먼저 제공하고, B는 이를 참조하는 밭·세션 기능을 구현합니다.
-- A의 농장/기록 조회 RPC는 B의 쓰기 모델과 상태 전이가 확정된 뒤 구현합니다.
-- B의 자동 수확 Cron은 수확 함수의 멱등성과 동시 실행 안전성이 검증된 뒤 추가합니다.
-- 공통 타입, RLS, 권한과 마이그레이션 순서는 A/B 공동 검토 대상입니다.
-- 다른 migration에 의존하는 PR은 선행 PR 번호를 명시합니다.
-
-## 검증
-
-컨테이너 런타임이 준비되면 PR 전에 다음을 실행합니다.
+## 로컬 적용과 검증
 
 ```bash
 npm run db:reset
 npm run db:test
+npm run test:integration
+npm run test:history
 npm run db:lint
+npm audit
 ```
 
-테이블과 RPC를 추가할 때 허용 사례뿐 아니라 타 사용자 접근, 익명 접근, 중복 요청 등 거부 사례도 테스트합니다.
+`db:reset`은 로컬 DB를 재생성하므로 필요한 로컬 데이터를 미리 보존합니다. CLI v3에서 위 명령은 기본으로 로컬을 대상으로 하며 `--remote`를 사용하지 않습니다. 통합 테스트는 publishable key만 사용하고 테스트 사용자를 정리합니다.
+
+## B 의존성
+
+- `farm_plots.user_id` → `profiles.id`
+- `focus_sessions.crop_id` → `crops.id`
+- `start_focus` 시 `crops.target_seconds`를 세션에 복사
+- 복합 소유권 FK와 수확 멱등성은 [RPC 계약](../api/rpc-contracts.md)을 따름
+- `ensure_farm()` 성공 후 `complete_onboarding()`을 호출하며, 실패 시 같은 순서로 멱등 재시도
+- B/Cron에 필요한 `service_role` 권한은 새 객체에 명시적으로만 `GRANT`; A 테이블/RPC에는 기본 권한 없음
