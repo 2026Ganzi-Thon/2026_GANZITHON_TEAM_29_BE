@@ -329,11 +329,23 @@ try {
   assert.deepEqual(harvests[0].data, harvests[1].data)
   assert.equal(harvests[0].data.auto_harvested, true)
   const ackArgs = { p_harvest_ids: [harvests[0].data.harvest_id] }
+  const unreadHarvests = (client) => client.from('harvests').select('id')
+    .eq('id', ackArgs.p_harvest_ids[0]).eq('auto_harvested', true).is('notice_acknowledged_at', null)
+  const ownNotice = await unreadHarvests(userA.client)
+  assert.equal(ownNotice.error, null)
+  assert.deepEqual(ownNotice.data, [{ id: ackArgs.p_harvest_ids[0] }])
+  const foreignNotice = await unreadHarvests(userB.client)
+  assert.equal(foreignNotice.error, null)
+  assert.deepEqual(foreignNotice.data, [])
   const foreignAck = await userB.client.rpc('ack_auto_harvest_notice', ackArgs)
   assert.equal(foreignAck.error?.details, 'AUTO_HARVEST_NOT_FOUND')
   const ack = await userA.client.rpc('ack_auto_harvest_notice', ackArgs)
   assert.equal(ack.error, null)
   assert.equal(ack.data.acknowledged_count, 1)
+  const acknowledgedNotice = await unreadHarvests(userA.client)
+  assert.equal(acknowledgedNotice.error, null)
+  assert.deepEqual(acknowledgedNotice.data, [])
+
 
   const harvestedFarmView = await userA.client.rpc('get_my_farm')
   assert.equal(harvestedFarmView.error, null)

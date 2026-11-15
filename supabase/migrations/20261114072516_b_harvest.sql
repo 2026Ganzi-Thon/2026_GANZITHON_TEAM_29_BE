@@ -28,6 +28,17 @@ using (exists (
 revoke all on public.harvests from public, anon, authenticated, service_role;
 grant select on public.harvests to authenticated;
 
+-- Validate against PostgreSQL's installed named time zones. Unknown historical
+-- values leave the deadline unset until the profile is repaired.
+create function private.harvest_deadline(p_ripe_at timestamptz, p_timezone text)
+returns timestamptz
+language sql stable
+set search_path = ''
+return case when exists (
+  select 1 from pg_catalog.pg_timezone_names where name = p_timezone
+) then (((p_ripe_at at time zone p_timezone)::date + 1)::timestamp at time zone p_timezone)
+end;
+
 create function private.set_harvest_deadline()
 returns trigger
 language plpgsql
@@ -38,7 +49,7 @@ declare
 begin
   select timezone into v_timezone from public.profiles where id = new.user_id;
   new.ripe_at := new.started_at + new.paused_duration + make_interval(secs => new.target_seconds);
-  new.auto_harvest_at := (((new.ripe_at at time zone v_timezone)::date + 1)::timestamp at time zone v_timezone);
+  new.auto_harvest_at := private.harvest_deadline(new.ripe_at, v_timezone);
   return new;
 end;
 $$;
@@ -47,6 +58,32 @@ create trigger focus_sessions_set_harvest_deadline
 before update of status on public.focus_sessions
 for each row when (new.status = 'ripe' and old.status is distinct from new.status)
 execute function private.set_harvest_deadline();
+
+-- Reconstruct actual completion using the session clock and the current profile zone.
+update public.focus_sessions s
+set ripe_at = s.started_at + s.paused_duration + make_interval(secs => s.target_seconds),
+    auto_harvest_at = private.harvest_deadline(
+      s.started_at + s.paused_duration + make_interval(secs => s.target_seconds), p.timezone
+    )
+from public.profiles p
+where p.id = s.user_id and s.status = 'ripe';
+
+create function private.validate_profile_timezone()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if not exists (select 1 from pg_catalog.pg_timezone_names where name = new.timezone) then
+    raise sqlstate '22023' using message = 'Invalid profile time zone';
+  end if;
+  return new;
+end;
+$$;
+
+create trigger profiles_validate_timezone
+before insert or update of timezone on public.profiles
+for each row execute function private.validate_profile_timezone();
 
 create function private.record_harvest(p_session_id uuid, p_now timestamptz)
 returns public.harvests
@@ -64,6 +101,15 @@ begin
   end if;
   if v_session.status <> 'ripe' then
     raise sqlstate 'PT409' using message = '현재 상태에서는 작물을 수확할 수 없습니다.', detail = 'NOT_RIPE';
+  end if;
+
+  -- A repaired profile can restore a missing deadline. Existing deadlines stay fixed.
+  if v_session.auto_harvest_at is null then
+    update public.focus_sessions s
+    set auto_harvest_at = private.harvest_deadline(s.ripe_at, p.timezone)
+    from public.profiles p
+    where s.id = p_session_id and p.id = s.user_id
+    returning s.* into v_session;
   end if;
 
   insert into public.harvests (session_id, harvested_at, auto_harvested)
@@ -127,7 +173,10 @@ begin
     where exists (
       select 1 from public.focus_sessions s
       where s.user_id = p.id and (
-        (s.status = 'ripe' and s.auto_harvest_at <= v_now)
+        (s.status = 'ripe' and (
+          s.auto_harvest_at <= v_now
+          or (s.auto_harvest_at is null and private.harvest_deadline(s.ripe_at, p.timezone) is not null)
+        ))
         or (s.status = 'focusing'
             and s.started_at + s.paused_duration + make_interval(secs => s.target_seconds) <= v_now
             and not exists (
@@ -140,6 +189,14 @@ begin
     order by p.id limit 100 for no key update skip locked
   loop
     perform private.finalize_focus(v_user);
+
+    update public.focus_sessions s
+    set auto_harvest_at = private.harvest_deadline(s.ripe_at, p.timezone)
+    from public.profiles p
+    where p.id = v_user and s.user_id = p.id and s.status = 'ripe'
+      and s.auto_harvest_at is null
+      and private.harvest_deadline(s.ripe_at, p.timezone) is not null;
+
     for v_session in
       select s.id from public.focus_sessions s
       where s.user_id = v_user and s.status = 'ripe' and s.auto_harvest_at <= v_now
@@ -191,7 +248,8 @@ begin
 end;
 $$;
 
-revoke execute on function private.set_harvest_deadline(), private.record_harvest(uuid, timestamptz),
+revoke execute on function private.harvest_deadline(timestamptz, text), private.validate_profile_timezone(),
+  private.set_harvest_deadline(), private.record_harvest(uuid, timestamptz),
   public.process_due_harvests(), public.harvest_crop(uuid), public.ack_auto_harvest_notice(uuid[])
 from public, anon, authenticated, service_role;
 grant execute on function public.harvest_crop(uuid), public.ack_auto_harvest_notice(uuid[]) to authenticated;
