@@ -77,9 +77,9 @@ select cron.alter_job((select jobid from cron.job
 
 추가 `ops/staging/test-auto-harvest-local.sql`은 빈 로컬 DB의 Unix socket에서만 실행하며 101명 fixture를 생성한 뒤 첫 배치 100명, 다음 배치 1명, 재실행 0건, 자동 수확 기록 101개를 검증하고 전부 ROLLBACK합니다. 기존 B 테스트는 다음 자정·수동 수확 재시도·기한 초과 worker·preview 보류·ack·밭 재사용을 검증합니다. 기존 통합 테스트의 병렬 수확 요청은 중복 방지를 검증합니다.
 
-원격은 사용자·세션·수확 0건입니다. 수확 대상을 임의 생성하거나 시간을 조작하지 않았습니다. 관리자 직접 빈 실행은 `{processed_count:0}`이었습니다. 이는 예약 실행 이력과 별개의 검사입니다.
+최초 활성화 시 원격은 사용자·세션·수확 0건이었으며 관리자 직접 빈 실행은 `{processed_count:0}`이었습니다. 이후 승인된 실제 Auth E2E에서 임시 계정 소유 세션만 시간을 조정하고 실제 예약 수확을 확인했습니다. [원격 E2E 기록](staging-remote-e2e.md)을 참고하세요. 해당 계정·관련 데이터는 전부 정리했습니다.
 
-원격 예약 실행 결과는 아래 실행 기록에 남깁니다. 실제 수확 처리 성공 경로는 VERIFIED_LOCAL_ONLY이며 원격은 스케줄러 실행만 VERIFIED_REMOTE입니다. Cron/수동 수확의 모든 잠금 순서, 장애 주입·재시작, timezone 조합 전수검증은 수행하지 않았습니다.
+원격 예약 실행 결과는 아래 최초 실행 기록과 별도 E2E 기록에 남깁니다. 실제 수확 처리 성공 경로도 VERIFIED_REMOTE입니다. Cron/수동 수확의 모든 잠금 순서, 장애 주입·재시작, timezone 조합 전수검증은 수행하지 않았습니다.
 
 | Job ID | UTC 시작 | UTC 종료 | 상태 / return_message |
 |---|---|---|---|
