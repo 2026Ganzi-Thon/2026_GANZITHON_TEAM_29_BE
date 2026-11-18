@@ -1,6 +1,6 @@
 {
-  "environment": "VERIFIED_LOCAL_ONLY",
-  "source": "scripts/test-crop-history.mjs, real local Auth HTTP/RPC responses",
+  "environment": "VERIFIED_REMOTE",
+  "source": "2026-11-18 focus-farm-staging; scripts/test-crop-history.mjs --staging; temporary Auth HTTP/RPC fixtures; cleaned after test",
   "today": {
     "items": [
       {
