@@ -20,6 +20,27 @@ Production 및 타 프로젝트에 접근하지 않았다.
 
 main/develop 직접 push 및 force push는 사용하지 않았다. 기능 브랜치와 기존 로컬 작업은 보존했다.
 
+전체 변경 파일(기능 및 후속 인계 PR 합산):
+
+```text
+.github/workflows/backend-ci.yml
+docs/api/crop-history-examples.json
+docs/api/crop-history-security-decision.md
+docs/api/crop-history.md
+docs/api/frontend-integration.md
+docs/api/rpc-contracts.md
+docs/database/migrations.md
+docs/deployment/auto-harvest-cron.md
+docs/deployment/crop-history-staging-verification.md
+docs/deployment/frontend-handoff.md
+ops/staging/enable-auto-harvest-cron.sql
+package.json
+scripts/benchmark-crop-history.mjs
+scripts/test-crop-history.mjs
+supabase/migrations/20261118132003_a_crop_history.sql
+supabase/tests/a_crop_history_test.sql
+```
+
 ## 마이그레이션과 권한
 
 Supabase CLI 3.1.0의 --help를 확인하고 공식 migration new로
