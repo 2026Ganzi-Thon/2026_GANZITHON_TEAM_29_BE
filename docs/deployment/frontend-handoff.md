@@ -74,7 +74,7 @@ await supabase.auth.signOut()
 | `start_rest({p_harvest_id:'uuid'})` | `{rest_ends_at,server_now}` | 수동 수확 후 / 동일 ID 멱등 재시도 |
 | `claim_overwork_notice({p_session_id:'uuid'})` | `{show_overwork_notice:true}` 또는 `false` | 집중 화면 후보→S12 / 응답 유실 후 true 재전달 보장 없음 |
 
-모든 앱 RPC는 로그인한 `authenticated` 사용자 전용입니다. 추가 DB 관리 함수 `process_due_harvests()`는 `{processed_count}`를 반환하지만 **anon/authenticated/service_role 모두 EXECUTE 없음**, DB 소유자의 관리 실행 전용입니다. 프론트에서 호출하지 않습니다. `reset_farm_history()`는 현재 배포에 없으며 PENDING입니다.
+모든 앱 RPC는 로그인한 `authenticated` 사용자 전용입니다. 추가 DB 관리 함수 `process_due_harvests()`는 `{processed_count}`를 반환하지만 **anon/authenticated/service_role 모두 EXECUTE 없음**, DB 소유자의 관리 실행 전용입니다. 프론트에서 호출하지 않습니다. `reset_farm_history()`는 [S16 명세](../api/s16-reset-contract.md)대로 구현됐으며 Staging 배포·E2E는 별도 기록으로 확정합니다. 기존 19개 원격 RPC 검증에 S16이 자동 포함되지는 않습니다.
 
 `get_active_focus().session`이 존재하면 `{session_id,plot_id,crop_id,status,started_at,paused_at,target_seconds,focused_seconds,remaining_seconds}`입니다. 목표에 도달하거나 일시정지 24시간 만료 시 조회에서는 숨기므로 `finalize_my_focus()`로 상태를 확정한 뒤 재조회합니다. 미리보기 유효 토큰은 자동 확정을 최대 5분 보류합니다.
 
@@ -212,5 +212,5 @@ Advisor 경고가 0이라고 보고하지 않습니다. Auth·앱 RPC·실제 �
 - 이메일/비밀번호, 가입 허용, Confirm email OFF, nickname metadata 정책입니다.
 - 프로필·온보딩·작물·농장·집중·중단·수확·집중 기록·수확 메모·휴식·과로 안내 API가 배포됐습니다. 수확 집계는 이제 숫자/capability=true입니다.
 - 로컬 303개 DB 테스트와 통합 테스트 통과, 실제 임시 계정 2개로 Auth·RPC·계정 간 RLS를 원격 검증했습니다. 테스트 계정과 데이터는 모두 정리됐습니다.
-- 자동 수확 Cron은 1분 주기로 ACTIVE이고 실제 예약 실행에 의한 수확·알림·ack까지 검증했습니다. 자연 자정 경과·경합 전수검증은 남아 있고 기록 초기화 API는 미구현입니다. 과로 안내 true 분기는 로컬 검증입니다.
+- 자동 수확 Cron은 1분 주기로 ACTIVE이고 실제 예약 실행에 의한 수확·알림·ack까지 검증했습니다. S16 초기화는 별도 신규 배포·검증 기록을 확인하세요. 과로 안내 true 분기는 로컬 검증입니다.
 - 연동 중 응답·화면 계약 차이가 보이면 API 이름, 입력 형태, 오류 code/details와 재현 순서를 공유해주세요. 토큰·비밀번호는 공유하지 마세요.
