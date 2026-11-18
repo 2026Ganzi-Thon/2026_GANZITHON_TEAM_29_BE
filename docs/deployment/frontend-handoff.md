@@ -1,5 +1,9 @@
 # 집중농장 Staging 프론트엔드 인계
 
+작물별 기록 신규 API: [get_crop_history 계약·검증 상태](../api/crop-history.md).
+S14는 crop_totals, S15는 items[].crops, S15-1은 monthly[].crops와 crop_totals를 사용합니다.
+새 API의 원격 검증 전에는 기존 API의 VERIFIED_REMOTE 상태를 신규 API에 확대 해석하지 않습니다.
+
 검증일: 2026-11-15 (Asia/Seoul). **Staging 실제 Auth·인증 RPC·예약 자동 수확 E2E 통과**입니다. 상세 범위와 제한은 [원격 E2E 기록](staging-remote-e2e.md)을 따릅니다.
 
 ## 연결 정보

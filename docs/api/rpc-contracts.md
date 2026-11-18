@@ -4,6 +4,11 @@
 
 ## 공통 규칙
 
+신규 A 조회 RPC `get_crop_history(p_period text)`는 [작물별 기록 최종 명세](crop-history.md)를 따릅니다.
+기존 `get_focus_history()`는 변경하지 않습니다. 새 응답은 period/summary/items/monthly/crop_totals
+5개 필드이며, 본인 확정 기록의 비활성 작물만 추가 SELECT하는 승인된 RLS 예외를 적용합니다.
+배포·검증 상태는 해당 명세의 상태 표기를 확인합니다.
+
 - RPC 함수명은 `snake_case`, 입력 매개변수는 `p_` 접두사를 사용합니다.
 - `user_id`는 `auth.users.id` UUID이며 `profiles.id`와 같습니다. 사용자 ID는 입력받지 않고 `auth.uid()`로 확인합니다.
 - `plot_id`, `crop_id`, `session_id`는 모두 UUID입니다.

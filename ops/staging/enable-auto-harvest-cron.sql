@@ -14,7 +14,7 @@ begin
      is distinct from array['20261110152140','20261113012151','20261113020509','20261113143508',
        '20261113145323','20261114054245','20261114070324','20261114072516','20261115011444',
        '20261115013511','20261115015534','20261115020000','20261115020500','20261115021000',
-       '20261118052002']::text[] then
+       '20261118052002','20261118132003']::text[] then
     raise exception 'Unexpected migration history; review before enabling Cron';
   end if;
   if not has_function_privilege('postgres','public.process_due_harvests()','execute')
