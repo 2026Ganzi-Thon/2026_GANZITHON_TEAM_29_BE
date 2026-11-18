@@ -241,13 +241,19 @@ A 조회 RPC는 밭을 만들거나 세션 상태를 변경하지 않습니다. 
 
 ## 미확정 UI 계약
 
+S14/S15/S15-1 작물별 기록은 [get_crop_history 최종 명세](crop-history.md)를 따릅니다.
+`supabase.rpc('get_crop_history', { p_period: 'today' })`의 crop_totals,
+week의 items[].crops, all의 monthly[].crops/crop_totals를 연결합니다.
+기존 get_focus_history는 그대로 지원하며, 새 summary만 필요하면 중복 호출하지 않습니다.
+씨앗/수확대기/수확완료별 작물 집중 시간 분리는 여전히 미지원입니다.
+
 S16은 [확정 호출·재조회·재시도 계약](s16-reset-contract.md)을 따릅니다. 취소 시 호출하지 않고 확정 시 `supabase.rpc('reset_farm_history')`를 호출합니다. 성공 응답은 `{success:true}`입니다. 성공 후 캐시 무효화와 재조회만 수행하고 로그아웃·온보딩 재진입은 하지 않습니다. 네트워크 오류 시 파괴적 RPC를 자동 재시도하지 않습니다.
 
 - 자동 수확 알림 ID와 확인 처리
-- 기록 화면의 원시 세션·작물 상세 목록
-- 수확 건수와 수동/자동 수확 날짜 귀속
+- 기록 화면의 원시 세션 목록과 상태별 작물 집중 시간 분리
+- 수동/자동 수확 구분 표시(집계는 둘 다 1회, 귀속일은 record_date로 확정)
 - `all` 장기 기록 pagination 또는 기간 제한
-- timezone 변경 시 기존 `record_date` 표시 정책
-- S02/S03, S14/S15/S15-1 원본 화면의 필드·그룹·정렬
+- timezone 변경 시 기존 record_date는 유지하며 UI 설명 문구는 별도 확정
+- S02/S03 추가 UI 필드 및 S14 씨앗별 분리 표시 방식
 
 이 항목은 프론트에서 임시 필드로 고정하거나 기존 RPC 응답에 추측해 추가하지 않습니다.

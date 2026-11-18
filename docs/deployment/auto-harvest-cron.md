@@ -22,7 +22,7 @@ npx supabase link --project-ref klanbfvywwudprunaqdf
 npx supabase db query --remote --file ops/staging/enable-auto-harvest-cron.sql
 ```
 
-S16 변경부터 SQL은 current_user=postgres, 승인된 클러스터 system_identifier, 정확한 15개 마이그레이션(20261118052002 포함), 관리 함수 권한을 검사합니다. S16 배포 전 14개 상태에서는 갱신된 운영 SQL 재실행이 거부됩니다. 클러스터 ID는 비밀값이 아니며 DB 복제·복구 후 달라질 수 있습니다. 복제본이 같은 ID를 가질 수 있으므로 프로젝트 Ref를 별도로 확인하고 가드를 제거하지 않습니다.
+운영 SQL은 current_user=postgres, 승인된 클러스터 system_identifier, 정확한 마이그레이션 목록, 관리 함수 권한을 검사합니다. get_crop_history 변경에서는 20261118132003까지 16개를 요구하도록 버전 목록만 갱신했습니다. 새 버전 배포 전에는 운영 SQL 재실행이 거부됩니다. 기존 Job을 재등록할 필요는 없습니다. 클러스터 ID는 비밀값이 아니며 DB 복제·복구 후 달라질 수 있습니다. 복제본이 같은 ID를 가질 수 있으므로 프로젝트 Ref를 별도로 확인하고 가드를 제거하지 않습니다.
 
 동일 이름·소유자의 올바른 Job은 그대로 유지하고 잘못된 주기·명령·활성 상태만 수정합니다. 다른 소유자나 중복 Job은 중단합니다. 무관한 Job을 수정하지 않습니다.
 

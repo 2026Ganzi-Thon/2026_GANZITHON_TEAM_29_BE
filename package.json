@@ -12,7 +12,8 @@
     "db:lint": "supabase db lint",
     "test:integration": "node scripts/test-auth-rpc.mjs",
     "test:history": "node scripts/test-focus-history.mjs",
-    "test:reset": "node scripts/test-farm-reset.mjs"
+    "test:reset": "node scripts/test-farm-reset.mjs",
+    "test:crop-history": "node scripts/test-crop-history.mjs"
   },
   "engines": {
     "node": ">=20"
