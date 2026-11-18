@@ -4,6 +4,10 @@
 
 ## 공통 규칙
 
+프론트 추가 요구사항: [기록 API 작물별 성장·씨앗 집계 보강](history-crop-counts.md).
+get_focus_history의 items[].crops와 get_crop_history의 일/월/누적 grown_count·seed_count는
+해당 보강 명세를 따릅니다. 기존 harvest_count와 모든 기존 필드는 유지합니다.
+
 신규 A 조회 RPC `get_crop_history(p_period text)`는 [작물별 기록 최종 명세](crop-history.md)를 따릅니다.
 기존 `get_focus_history()`는 변경하지 않습니다. 새 응답은 period/summary/items/monthly/crop_totals
 5개 필드이며, 본인 확정 기록의 비활성 작물만 추가 SELECT하는 승인된 RLS 예외를 적용합니다.

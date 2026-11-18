@@ -1,5 +1,9 @@
 # A 담당 프론트엔드 연동 가이드
 
+최신 작물별 집계 확장: [두 기록 API 보강 계약·검증 상태](history-crop-counts.md).
+기존 get_focus_history 호출을 유지하면서 items[].crops를 사용할 수 있습니다.
+grown_count는 성장 완료(ripe+harvested), harvest_count는 실제 수확이며 서로 다릅니다.
+
 이 문서는 Supabase JS를 사용하는 별도 프론트엔드 저장소의 연동 계약입니다. 기존 A API와 신규 get_crop_history는 Staging에서 호출할 수 있습니다. S14/S15/S15-1의 Figma 메타데이터와 제공된 계약을 대조했으며, 프론트 구현이나 픽셀 검수는 하지 않았습니다. UI 전용 필드를 DB 계약에 임의로 추가하지 않습니다.
 
 ## 클라이언트 설정과 키 구분

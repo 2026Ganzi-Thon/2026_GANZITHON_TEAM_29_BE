@@ -1,5 +1,9 @@
 # 작물별 집중 및 수확 기록 — get_crop_history
 
+후속 확장: [grown_count·seed_count 추가 계약](history-crop-counts.md).
+아래 최초 배포 계약에 더해 일/월/누적 작물 객체에 두 숫자를 추가합니다.
+get_focus_history에도 일별 crops가 추가되므로 아래의 ‘기존 함수 변경 없음’은 최초 배포 기준입니다.
+
 Issue: [#31](https://github.com/2026Ganzi-Thon/2026_GANZITHON_TEAM_29_BE/issues/31).
 현재 검증 상태: **VERIFIED_REMOTE** (2026-11-18, focus-farm-staging).
 배포 커밋 `5e06f34bf3e5ba3e7d6d08c5b3f46437da343ebf`.
@@ -21,7 +25,7 @@ const all = await supabase.rpc('get_crop_history', { p_period: 'all' })
 
 | 화면 | 응답 필드 |
 | --- | --- |
-| S14 오늘 작물별 기록 | `crop_totals` |
+| S14 오늘 작물별 기록 | `crop_totals` 또는 `get_focus_history().items[].crops` |
 | S15 이번 주 요일별 작물 기록 | `items[].crops` |
 | S15-1 전체 월별 작물 기록 | `monthly[].crops` |
 | S15-1 누적 작물 기록 | `crop_totals` |

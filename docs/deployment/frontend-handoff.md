@@ -1,5 +1,8 @@
 # 집중농장 Staging 프론트엔드 인계
 
+추가 요구사항의 현재 상태와 필드: [두 기록 API 성장·씨앗 집계](../api/history-crop-counts.md).
+새 필드는 해당 문서의 배포 상태를 확인한 뒤 연결합니다.
+
 작물별 기록 신규 API: [get_crop_history 계약·검증 상태](../api/crop-history.md).
 S14는 crop_totals, S15는 items[].crops, S15-1은 monthly[].crops와 crop_totals를 사용합니다.
 신규 API도 실제 Auth/RPC·비활성 작물 RLS E2E **VERIFIED_REMOTE**입니다.

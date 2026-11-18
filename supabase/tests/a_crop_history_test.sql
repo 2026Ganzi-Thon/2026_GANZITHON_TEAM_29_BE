@@ -56,7 +56,7 @@ set local role authenticated;
 insert into responses select p,public.get_crop_history(p),public.get_focus_history(p) from unnest(array['today','week','all']) p;
 select is((select body->'summary' from responses where period='all'),'{"focused_seconds":360,"harvest_count":4,"seed_count":3}'::jsonb,'all: finalized only, actual harvests, seed included');
 select is((select body->'summary' from responses where period='today'),'{"focused_seconds":150,"harvest_count":3,"seed_count":2}'::jsonb,'today includes 0 seed, ripe and 3 actual harvests');
-select is((select body#>'{crop_totals,1}' from responses where period='today'),'{"crop_id":"10000000-0000-4000-8000-000000000002","crop_name":"당근","focused_seconds":150,"harvest_count":3}'::jsonb,'same crop three harvests aggregated once');
+select is((select body#>'{crop_totals,1}' from responses where period='today'),'{"crop_id":"10000000-0000-4000-8000-000000000002","crop_name":"당근","focused_seconds":150,"harvest_count":3,"grown_count":4,"seed_count":1}'::jsonb,'same crop three harvests aggregated once');
 select is((select body#>>'{crop_totals,0,focused_seconds}' from responses where period='today'),'0','0-second seed crop retained');
 select is((select body#>>'{crop_totals,2,harvest_count}' from responses where period='all'),'0','harvested without harvest row is not counted');
 select is((select count(*)::int from public.crops where not is_active),2,'only own finalized inactive crops visible');

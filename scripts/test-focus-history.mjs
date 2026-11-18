@@ -108,8 +108,10 @@ try {
   assert.deepEqual(history.data.summary, { focused_seconds: 30, seed_count: 1, harvest_count: 0 })
   assert.deepEqual(history.data.capabilities, { harvest_count: true })
   assert.deepEqual(history.data.items, [
-    { record_date: '2026-01-01', focused_seconds: 0, seed_count: 1, harvest_count: 0 },
-    { record_date: '2026-01-02', focused_seconds: 30, seed_count: 0, harvest_count: 0 },
+    { record_date: '2026-01-01', focused_seconds: 0, seed_count: 1, harvest_count: 0,
+      crops: [{ crop_id: '10000000-0000-4000-8000-000000000001', crop_name: '새싹채소', focused_seconds: 0, grown_count: 0, seed_count: 1 }] },
+    { record_date: '2026-01-02', focused_seconds: 30, seed_count: 0, harvest_count: 0,
+      crops: [{ crop_id: '10000000-0000-4000-8000-000000000001', crop_name: '새싹채소', focused_seconds: 30, grown_count: 1, seed_count: 0 }] },
   ])
 
   const ripeSession = await owner.client.from('focus_sessions').select('id').eq('status', 'ripe').single()
