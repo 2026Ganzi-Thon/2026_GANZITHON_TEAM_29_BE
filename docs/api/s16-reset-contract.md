@@ -1,6 +1,6 @@
 # S16 기록 모두 지우기
 
-상태: 구현·로컬 검증. Staging 배포·원격 검증은 별도 배포 기록으로 확정합니다.
+상태: **Staging 배포·실제 SDK VERIFIED_REMOTE** (2026-11-18). [배포 및 검증 기록](../deployment/s16-staging-verification.md)을 참고하세요.
 
 ## API 명세 (Notion 추가용)
 
