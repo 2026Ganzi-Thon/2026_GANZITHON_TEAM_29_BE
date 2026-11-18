@@ -1,6 +1,8 @@
 # 기록 API 작물별 성장·씨앗 집계 보강
 
-상태: **VERIFIED_LOCAL_ONLY / Staging 신규 배포 PENDING**.
+상태: **VERIFIED_REMOTE** — 2026-11-18 focus-farm-staging 배포 및 실제 Auth SDK E2E 완료.
+배포 SHA: `743c88a50fc2d31201a573b6d5ea592ff8e9ddbb`.
+[전체 실제 응답 JSON](history-crop-counts-examples.json) · [배포/QA/정리 기록](../deployment/history-crop-counts-staging-verification.md).
 Issue [#35](https://github.com/2026Ganzi-Thon/2026_GANZITHON_TEAM_29_BE/issues/35).
 신규 migration: `20261118135436_a_history_crop_counts.sql` (CLI 3.1.0 생성).
 
@@ -101,6 +103,9 @@ SDK 로컬 호환성 시험은 **변경하지 않은 이전 migration 두 개의
 인증 역할로 today/week/all을 조회한다. 새 응답에서 승인된 추가 필드만 제거한 뒤 구버전 전체 JSON과
 deepEqual로 비교하고 전체 임시 함수/권한을 ROLLBACK한다. 이 임시 DDL은 원격에서 실행하지 않는다.
 Staging에서는 실제 Auth HTTP·SDK로 새 필드/두 API 일별 일치/격리/오류/초기화 및 정리를 검증한다.
+위 원격 SDK 검증은 실제 통과했다. 두 API의 익명 HTTP 요청도 각각 401/42501을 확인했다.
+임시 계정 2개와 시험용 비활성 작물 5개를 정리하고 잔여 0건을 재조회했다.
+배포 전후 두 함수의 ACL/owner/설정, 모든 기존 RLS/테이블 권한/다른 함수/Cron은 동일했다.
 
 로컬 기존 benchmark 재실행: 본인 10,000 세션/1,825일/61개월, 타 사용자 100,000 세션 공존 시
 get_crop_history('all') 16.145ms / JSON 465,843 bytes. 기존 인덱스를 사용하며 새 인덱스는 없다.
@@ -131,4 +136,4 @@ all 조회 페이지네이션 및 실제 프론트 UI 구현도 이번 범위에
 > get_focus_history는 기존 일별 필드를 유지하고 items[].crops를 추가하며,
 > get_crop_history는 일/월/누적 crops에 두 횟수를 추가합니다. 실제 수확은 기존 harvest_count입니다.
 > 집중 초는 상태별로 분리되지 않으니 횟수로 시간 분리를 추정하지 말아 주세요.
-> 실제 배포·검증 상태는 이 명세 상단을 확인해 주세요.
+> Staging 배포와 실제 Auth/RPC 검증이 완료됐습니다. 명세: docs/api/history-crop-counts.md.

@@ -192,7 +192,8 @@ const { data, error } = await supabase.rpc('get_focus_history', {
       "record_date": "2026-11-09",
       "focused_seconds": 0,
       "seed_count": 0,
-      "harvest_count": 0
+      "harvest_count": 0,
+      "crops": []
     }
   ],
   "capabilities": { "harvest_count": true }

@@ -9,7 +9,7 @@ get_focus_history의 items[].crops와 get_crop_history의 일/월/누적 grown_c
 해당 보강 명세를 따릅니다. 기존 harvest_count와 모든 기존 필드는 유지합니다.
 
 신규 A 조회 RPC `get_crop_history(p_period text)`는 [작물별 기록 최종 명세](crop-history.md)를 따릅니다.
-기존 `get_focus_history()`는 변경하지 않습니다. 새 응답은 period/summary/items/monthly/crop_totals
+get_crop_history 최초 추가 시 기존 get_focus_history는 유지했으며, 이번 보강에서는 기존 필드·의미를 보존하고 일별 crops만 추가합니다. crop API 응답은 period/summary/items/monthly/crop_totals
 5개 필드이며, 본인 확정 기록의 비활성 작물만 추가 SELECT하는 승인된 RLS 예외를 적용합니다.
 배포·검증 상태는 해당 명세의 상태 표기를 확인합니다.
 
@@ -128,6 +128,8 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 권장안·예시·결정 대기 항목은 [조회 모델 설계](read-model-design.md)에 기록합니다.
 
 ### `get_focus_history(p_period)`
+
+- 각 items 항목의 crops는 `{crop_id,crop_name,focused_seconds,grown_count,seed_count}` 배열이며 빈 날짜는 []입니다.
 
 - 반환: `{ period, range, summary, items, capabilities }` JSON 객체
 - `today`: 사용자 시간대의 오늘 1개 일별 항목
