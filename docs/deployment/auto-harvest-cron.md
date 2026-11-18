@@ -22,7 +22,7 @@ npx supabase link --project-ref klanbfvywwudprunaqdf
 npx supabase db query --remote --file ops/staging/enable-auto-harvest-cron.sql
 ```
 
-S16 변경부터 SQL은 current_user=postgres, 승인된 클러스터 system_identifier, 정확한 15개 마이그레이션(20261118052002 포함), 관리 함수 권한을 검사합니다. S16 배포 전 14개 상태에서는 갱신된 운영 SQL 재실행이 거부됩니다. 클러스터 ID는 비밀값이 아니며 DB 복제·복구 후 달라질 수 있습니다. 복제본이 같은 ID를 가질 수 있으므로 프로젝트 Ref를 별도로 확인하고 가드를 제거하지 않습니다.
+운영 SQL은 current_user=postgres, 승인된 클러스터 system_identifier, 정확한 마이그레이션 목록, 관리 함수 권한을 검사합니다. get_crop_history 변경에서는 20261118132003까지 16개를 요구하도록 버전 목록만 갱신했습니다. 새 버전 배포 전에는 운영 SQL 재실행이 거부됩니다. 기존 Job을 재등록할 필요는 없습니다. 클러스터 ID는 비밀값이 아니며 DB 복제·복구 후 달라질 수 있습니다. 복제본이 같은 ID를 가질 수 있으므로 프로젝트 Ref를 별도로 확인하고 가드를 제거하지 않습니다.
 
 동일 이름·소유자의 올바른 Job은 그대로 유지하고 잘못된 주기·명령·활성 상태만 수정합니다. 다른 소유자나 중복 Job은 중단합니다. 무관한 Job을 수정하지 않습니다.
 
@@ -92,4 +92,4 @@ select cron.alter_job((select jobid from cron.job
 
 관리 함수 EXECUTE: postgres=true, anon/authenticated/service_role=false. cron 스키마 USAGE도 관리자만 가능하며 일반 세 역할은 false입니다. 확장이 생성한 cron 테이블의 ACL 조회에서는 일반 역할 SELECT가 true로 보일 수 있으나 스키마 USAGE가 없어 직접 이름으로 접근할 수 없습니다. 기존 Supabase 관리 테이블 ACL을 무분별하게 철회하지 않았습니다.
 
-앱의 public/private 테이블 RLS와 기존 API 권한은 유지합니다. 신규 마이그레이션을 추가하지 않아 원격 이력은 14개 그대로입니다.
+최초 Cron 활성화 시 원격 이력은 14개였으며 S16 배포 후에는 15개입니다. 갱신된 가드를 실제 재실행해 통과했고 기존 Job ID 1·ACTIVE 상태를 유지했습니다. [S16 배포 기록](s16-staging-verification.md)에 reset 이후 실제 예약 실행과 데이터 미복원 검증을 남겼습니다. 앱 RLS와 기존 권한은 유지됩니다.

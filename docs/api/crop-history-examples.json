@@ -1,0 +1,281 @@
+{
+  "environment": "VERIFIED_LOCAL_ONLY",
+  "source": "scripts/test-crop-history.mjs, real local Auth HTTP/RPC responses",
+  "today": {
+    "items": [
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000001",
+            "crop_name": "새싹채소",
+            "harvest_count": 0,
+            "focused_seconds": 0
+          },
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000002",
+            "crop_name": "당근",
+            "harvest_count": 3,
+            "focused_seconds": 150
+          }
+        ],
+        "record_date": "2026-11-18",
+        "harvest_count": 3,
+        "focused_seconds": 150
+      }
+    ],
+    "period": "today",
+    "monthly": [],
+    "summary": {
+      "seed_count": 2,
+      "harvest_count": 3,
+      "focused_seconds": 150
+    },
+    "crop_totals": [
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000001",
+        "crop_name": "새싹채소",
+        "harvest_count": 0,
+        "focused_seconds": 0
+      },
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000002",
+        "crop_name": "당근",
+        "harvest_count": 3,
+        "focused_seconds": 150
+      }
+    ]
+  },
+  "week": {
+    "items": [
+      {
+        "crops": [],
+        "record_date": "2026-11-16",
+        "harvest_count": 0,
+        "focused_seconds": 0
+      },
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000003",
+            "crop_name": "딸기",
+            "harvest_count": 0,
+            "focused_seconds": 60
+          }
+        ],
+        "record_date": "2026-11-17",
+        "harvest_count": 0,
+        "focused_seconds": 60
+      },
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000001",
+            "crop_name": "새싹채소",
+            "harvest_count": 0,
+            "focused_seconds": 0
+          },
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000002",
+            "crop_name": "당근",
+            "harvest_count": 3,
+            "focused_seconds": 150
+          }
+        ],
+        "record_date": "2026-11-18",
+        "harvest_count": 3,
+        "focused_seconds": 150
+      },
+      {
+        "crops": [],
+        "record_date": "2026-11-19",
+        "harvest_count": 0,
+        "focused_seconds": 0
+      },
+      {
+        "crops": [],
+        "record_date": "2026-11-20",
+        "harvest_count": 0,
+        "focused_seconds": 0
+      },
+      {
+        "crops": [],
+        "record_date": "2026-11-21",
+        "harvest_count": 0,
+        "focused_seconds": 0
+      },
+      {
+        "crops": [],
+        "record_date": "2026-11-22",
+        "harvest_count": 0,
+        "focused_seconds": 0
+      }
+    ],
+    "period": "week",
+    "monthly": [],
+    "summary": {
+      "seed_count": 2,
+      "harvest_count": 3,
+      "focused_seconds": 210
+    },
+    "crop_totals": [
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000001",
+        "crop_name": "새싹채소",
+        "harvest_count": 0,
+        "focused_seconds": 0
+      },
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000002",
+        "crop_name": "당근",
+        "harvest_count": 3,
+        "focused_seconds": 150
+      },
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000003",
+        "crop_name": "딸기",
+        "harvest_count": 0,
+        "focused_seconds": 60
+      }
+    ]
+  },
+  "all": {
+    "items": [
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000004",
+            "crop_name": "옥수수",
+            "harvest_count": 0,
+            "focused_seconds": 70
+          }
+        ],
+        "record_date": "2025-11-01",
+        "harvest_count": 0,
+        "focused_seconds": 70
+      },
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000004",
+            "crop_name": "옥수수",
+            "harvest_count": 1,
+            "focused_seconds": 80
+          }
+        ],
+        "record_date": "2026-11-01",
+        "harvest_count": 1,
+        "focused_seconds": 80
+      },
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000003",
+            "crop_name": "딸기",
+            "harvest_count": 0,
+            "focused_seconds": 60
+          }
+        ],
+        "record_date": "2026-11-17",
+        "harvest_count": 0,
+        "focused_seconds": 60
+      },
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000001",
+            "crop_name": "새싹채소",
+            "harvest_count": 0,
+            "focused_seconds": 0
+          },
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000002",
+            "crop_name": "당근",
+            "harvest_count": 3,
+            "focused_seconds": 150
+          }
+        ],
+        "record_date": "2026-11-18",
+        "harvest_count": 3,
+        "focused_seconds": 150
+      }
+    ],
+    "period": "all",
+    "monthly": [
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000001",
+            "crop_name": "새싹채소",
+            "harvest_count": 0,
+            "focused_seconds": 0
+          },
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000002",
+            "crop_name": "당근",
+            "harvest_count": 3,
+            "focused_seconds": 150
+          },
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000003",
+            "crop_name": "딸기",
+            "harvest_count": 0,
+            "focused_seconds": 60
+          },
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000004",
+            "crop_name": "옥수수",
+            "harvest_count": 1,
+            "focused_seconds": 80
+          }
+        ],
+        "month": "2026-11",
+        "harvest_count": 4,
+        "focused_seconds": 290
+      },
+      {
+        "crops": [
+          {
+            "crop_id": "10000000-0000-4000-8000-000000000004",
+            "crop_name": "옥수수",
+            "harvest_count": 0,
+            "focused_seconds": 70
+          }
+        ],
+        "month": "2025-11",
+        "harvest_count": 0,
+        "focused_seconds": 70
+      }
+    ],
+    "summary": {
+      "seed_count": 3,
+      "harvest_count": 4,
+      "focused_seconds": 360
+    },
+    "crop_totals": [
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000001",
+        "crop_name": "새싹채소",
+        "harvest_count": 0,
+        "focused_seconds": 0
+      },
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000002",
+        "crop_name": "당근",
+        "harvest_count": 3,
+        "focused_seconds": 150
+      },
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000003",
+        "crop_name": "딸기",
+        "harvest_count": 0,
+        "focused_seconds": 60
+      },
+      {
+        "crop_id": "10000000-0000-4000-8000-000000000004",
+        "crop_name": "옥수수",
+        "harvest_count": 1,
+        "focused_seconds": 150
+      }
+    ]
+  }
+}

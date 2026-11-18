@@ -65,6 +65,10 @@ npm audit
 
 ## B 의존성
 
+작물별 기록 추가: `20261118132003_a_crop_history.sql`은 앞선 S16 마이그레이션 다음에 적용합니다.
+신규 get_crop_history(text)와 승인된 crops_select_own_history SELECT 정책만 추가합니다.
+기존 마이그레이션 및 get_focus_history는 수정하지 않습니다. `npm run test:crop-history`도 실행합니다.
+
 - `farm_plots.user_id` → `profiles.id`
 - `focus_sessions.crop_id` → `crops.id`
 - `start_focus` 시 `crops.target_seconds`를 세션에 복사
