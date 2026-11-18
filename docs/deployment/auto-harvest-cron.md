@@ -1,5 +1,8 @@
 # Staging 자동 수확 Cron 운영
 
+기록 API 성장·씨앗 집계 확장부터 운영 SQL의 이력 가드는 20261118135436까지 17개를 요구합니다.
+배포 이전에는 재실행을 거부하며, 기존 Job 설정을 바꾸거나 재등록할 필요는 없습니다.
+
 대상은 `focus-farm-staging` / `klanbfvywwudprunaqdf`, 서울, PostgreSQL 17.11입니다. 운영 SQL은 일반 마이그레이션이 아니며 Production에 적용하지 않습니다.
 
 작업 기준 develop: `cb14939f3d47f87e41d99086b6a325d1bc7a965b`. 배포 코드 main: `7471dddc028df1c87f2e33e93dbbae33b34b31f5`. 작업 브랜치: `infra/staging-auto-harvest-cron`.

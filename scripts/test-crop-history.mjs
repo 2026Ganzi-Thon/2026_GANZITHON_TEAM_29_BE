@@ -21,7 +21,7 @@ function sql(query, write = false) {
       const result = JSON.parse(execFileSync('npx', ['supabase', 'db', 'query', `--remote=${ref}`, write ? '--yes' : '--read-only', query], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }))
       return result.rows
     }
-    return JSON.parse(execFileSync('docker', ['exec', `supabase_db_${projectId}`, 'psql', '-XAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres', '-c', query], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }))
+    return JSON.parse(execFileSync('docker', ['exec', `supabase_db_${projectId}`, 'psql', '-XqAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'postgres', '-c', query], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }))
   } catch {
     throw new Error('Fixture SQL failed; output withheld to protect credentials')
   }
@@ -31,6 +31,7 @@ const run = randomUUID()
 const password = `Crop-${randomUUID()}-Aa1!`
 const accounts = []
 const responses = {}
+const focusResponses = {}
 const fixtureCrops = Array.from({ length: 5 }, () => randomUUID())
 const sortBase = 1500000000 + randomInt(1000000) * 5
 async function rpc(c, name, args) {
@@ -76,6 +77,7 @@ function check(data, period) {
       assert.match(crop.crop_id, /^[0-9a-f-]{36}$/)
       assert.equal(typeof crop.crop_name, 'string')
       assert.ok(Number.isSafeInteger(crop.focused_seconds) && Number.isSafeInteger(crop.harvest_count))
+      assert.ok(Number.isSafeInteger(crop.grown_count) && Number.isSafeInteger(crop.seed_count))
     }
   }
 }
@@ -117,6 +119,9 @@ try {
     const old = await rpc(a.c, 'get_focus_history', { p_period: period })
     check(data, period)
     assert.deepEqual(data.summary, old.summary)
+    assert.deepEqual(old.items.map(day => day.crops), data.items.map(day => day.crops.map(({ harvest_count, ...crop }) => crop)))
+    assert.deepEqual(old.items.map(({ crops, ...day }) => day), data.items.map(({ crops, ...day }) => ({ ...day, seed_count: crops.reduce((n, c) => n + c.seed_count, 0) })))
+    focusResponses[period] = old
     responses[period] = data
     const isolated = await rpc(b.c, 'get_crop_history', { p_period: period })
     assert.equal(isolated.summary.focused_seconds, 0)
@@ -124,7 +129,33 @@ try {
   assert.deepEqual(sql(snapshotQuery), before, 'Read-only RPC changes no owned rows')
   assert.deepEqual(responses.all.summary, { focused_seconds: 360, harvest_count: 4, seed_count: 3 })
   assert.equal(responses.today.crop_totals[1].harvest_count, 3)
+  assert.equal(responses.today.crop_totals[1].grown_count, 4)
+  assert.equal(responses.today.crop_totals[1].seed_count, 1)
   assert.equal(responses.today.crop_totals[0].focused_seconds, 0)
+  // Execute the untouched previous SQL definitions in a local temporary schema, then roll back.
+  if (!staging) {
+    const originals = [
+      ['20261115011444_a_focus_history_harvest_count.sql', 'get_focus_history'],
+      ['20261118132003_a_crop_history.sql', 'get_crop_history'],
+    ].map(([file, name]) => {
+      const source = readFileSync(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8')
+      const definition = source.slice(source.indexOf(`create ${name === 'get_focus_history' ? 'or replace ' : ''}function public.${name}`)).split('$$;')[0] + '$$;'
+      return definition.replace(`public.${name}`, `pg_temp.previous_${name}`) + `\ngrant execute on function pg_temp.previous_${name}(text) to authenticated;`
+    }).join('\n')
+    const previous = sql(`begin; ${originals}
+      set local request.jwt.claim.sub='${a.id}'; set local role authenticated;
+      select json_object_agg(p,json_build_object('focus',pg_temp.previous_get_focus_history(p),'crop',pg_temp.previous_get_crop_history(p)))
+      from unnest(array['today','week','all']) p; rollback;`)
+    const stripCounts = crop => { const { grown_count, seed_count, ...old } = crop; return old }
+    for (const period of ['today', 'week', 'all']) {
+      assert.deepEqual({ ...focusResponses[period], items: focusResponses[period].items.map(({ crops, ...day }) => day) }, previous[period].focus)
+      assert.deepEqual({ ...responses[period],
+        items: responses[period].items.map(day => ({ ...day, crops: day.crops.map(stripCounts) })),
+        monthly: responses[period].monthly.map(month => ({ ...month, crops: month.crops.map(stripCounts) })),
+        crop_totals: responses[period].crop_totals.map(stripCounts),
+      }, previous[period].crop)
+    }
+  }
   const foreign = await b.c.from('focus_sessions').select('id').eq('user_id', a.id)
   assert.equal(foreign.error, null)
   assert.deepEqual(foreign.data, [])
@@ -186,7 +217,7 @@ try {
   const afterReset = await a.c.from('crops').select('id').in('id', fixtureCrops)
   assert.equal(afterReset.error, null)
   assert.deepEqual(afterReset.data, [])
-  result = { environment: staging ? 'VERIFIED_REMOTE' : 'VERIFIED_LOCAL_ONLY', auth: 'PASS', periods: 'PASS', parity: 'PASS', isolation: 'PASS', errors: 'PASS', readOnly: 'PASS', reset: 'PASS', inactiveCropRls: 'PASS (own finalized only; foreign/unreferenced/focusing/paused/anon denied; original SELECT columns; active-only list/planting; last-reference removal)', examples: responses }
+  result = { environment: staging ? 'VERIFIED_REMOTE' : 'VERIFIED_LOCAL_ONLY', auth: 'PASS', periods: 'PASS', parity: 'PASS (summaries and daily crops)', legacyCompatibility: staging ? 'VERIFIED_LOCAL_ONLY (original SQL snapshot comparison)' : 'PASS (both original SQL definitions, today/week/all, only approved fields removed)', isolation: 'PASS', errors: 'PASS', readOnly: 'PASS', reset: 'PASS', inactiveCropRls: 'PASS (own finalized only; foreign/unreferenced/focusing/paused/anon denied; original SELECT columns; active-only list/planting; last-reference removal)', examples: responses, focusExamples: focusResponses }
 } finally {
   const failures = []
   for (const a of accounts) {
