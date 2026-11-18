@@ -28,7 +28,16 @@
    - 중도 종료 미리보기·확정·취소 RPC와 해시 토큰 저장소
    - 5분 TTL, 멱등 확인, 상태 전이 시 미리보기 무효화
 
-일곱 마이그레이션은 이 순서로 적용되며 `profiles.id`, `crops.id`, `crops.target_seconds`를 계약대로 사용합니다. `get_my_farm()`과 `get_focus_history()`는 B의 상태를 변경하지 않습니다. 수확·자동 수확·Cron은 후속 B 마이그레이션 전까지 Staging 배포 범위에서 제외합니다.
+8. `20261114072516_b_harvest.sql` — 수확·자동 수확·알림·timezone 검증
+9. `20261115011444_a_focus_history_harvest_count.sql` — 실제 수확 집계
+10. `20261115013511_b_save_harvest_note.sql` — 메모 기반
+11. `20261115015534_b_start_rest.sql` — 수확 후 휴식
+12. `20261115020000_b_harvest_note_guidance.sql` — 메모 안내
+13. `20261115020500_b_focus_streak.sql` — 연속 집중·과로 안내
+14. `20261115021000_b_overwork_precision.sql` — 안내 시간 정밀도
+15. `20261118052002_b_reset_farm_history.sql` — S16 본인 활동 초기화, 계정·프로필·밭 보존
+
+앞의 14개는 기존 배포 이력입니다. S16은 신규 1개만 추가하고 이전 버전·내용을 변경하지 않습니다. Staging 전용 Cron Job은 일반 마이그레이션이 아닌 ops/staging에서 관리하며 가드는 정확한 15개 목록을 검사합니다.
 
 ## 생성 규칙
 
