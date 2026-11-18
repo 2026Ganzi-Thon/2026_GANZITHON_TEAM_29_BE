@@ -1,6 +1,6 @@
 {
   "environment": "VERIFIED_REMOTE",
-  "source": "2026-11-18 focus-farm-staging; scripts/test-crop-history.mjs --staging; temporary Auth HTTP/RPC fixtures; cleaned after test",
+  "source": "2026-11-18 focus-farm-staging; migration 20261118135436; real Auth/RPC fixtures cleaned after verification",
   "today": {
     "items": [
       {
@@ -8,12 +8,16 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000001",
             "crop_name": "새싹채소",
+            "seed_count": 1,
+            "grown_count": 0,
             "harvest_count": 0,
             "focused_seconds": 0
           },
           {
             "crop_id": "10000000-0000-4000-8000-000000000002",
             "crop_name": "당근",
+            "seed_count": 1,
+            "grown_count": 4,
             "harvest_count": 3,
             "focused_seconds": 150
           }
@@ -34,12 +38,16 @@
       {
         "crop_id": "10000000-0000-4000-8000-000000000001",
         "crop_name": "새싹채소",
+        "seed_count": 1,
+        "grown_count": 0,
         "harvest_count": 0,
         "focused_seconds": 0
       },
       {
         "crop_id": "10000000-0000-4000-8000-000000000002",
         "crop_name": "당근",
+        "seed_count": 1,
+        "grown_count": 4,
         "harvest_count": 3,
         "focused_seconds": 150
       }
@@ -58,6 +66,8 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000003",
             "crop_name": "딸기",
+            "seed_count": 0,
+            "grown_count": 1,
             "harvest_count": 0,
             "focused_seconds": 60
           }
@@ -71,12 +81,16 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000001",
             "crop_name": "새싹채소",
+            "seed_count": 1,
+            "grown_count": 0,
             "harvest_count": 0,
             "focused_seconds": 0
           },
           {
             "crop_id": "10000000-0000-4000-8000-000000000002",
             "crop_name": "당근",
+            "seed_count": 1,
+            "grown_count": 4,
             "harvest_count": 3,
             "focused_seconds": 150
           }
@@ -121,18 +135,24 @@
       {
         "crop_id": "10000000-0000-4000-8000-000000000001",
         "crop_name": "새싹채소",
+        "seed_count": 1,
+        "grown_count": 0,
         "harvest_count": 0,
         "focused_seconds": 0
       },
       {
         "crop_id": "10000000-0000-4000-8000-000000000002",
         "crop_name": "당근",
+        "seed_count": 1,
+        "grown_count": 4,
         "harvest_count": 3,
         "focused_seconds": 150
       },
       {
         "crop_id": "10000000-0000-4000-8000-000000000003",
         "crop_name": "딸기",
+        "seed_count": 0,
+        "grown_count": 1,
         "harvest_count": 0,
         "focused_seconds": 60
       }
@@ -145,6 +165,8 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000004",
             "crop_name": "옥수수",
+            "seed_count": 1,
+            "grown_count": 0,
             "harvest_count": 0,
             "focused_seconds": 70
           }
@@ -158,6 +180,8 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000004",
             "crop_name": "옥수수",
+            "seed_count": 0,
+            "grown_count": 1,
             "harvest_count": 1,
             "focused_seconds": 80
           }
@@ -171,6 +195,8 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000003",
             "crop_name": "딸기",
+            "seed_count": 0,
+            "grown_count": 1,
             "harvest_count": 0,
             "focused_seconds": 60
           }
@@ -184,12 +210,16 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000001",
             "crop_name": "새싹채소",
+            "seed_count": 1,
+            "grown_count": 0,
             "harvest_count": 0,
             "focused_seconds": 0
           },
           {
             "crop_id": "10000000-0000-4000-8000-000000000002",
             "crop_name": "당근",
+            "seed_count": 1,
+            "grown_count": 4,
             "harvest_count": 3,
             "focused_seconds": 150
           }
@@ -206,24 +236,32 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000001",
             "crop_name": "새싹채소",
+            "seed_count": 1,
+            "grown_count": 0,
             "harvest_count": 0,
             "focused_seconds": 0
           },
           {
             "crop_id": "10000000-0000-4000-8000-000000000002",
             "crop_name": "당근",
+            "seed_count": 1,
+            "grown_count": 4,
             "harvest_count": 3,
             "focused_seconds": 150
           },
           {
             "crop_id": "10000000-0000-4000-8000-000000000003",
             "crop_name": "딸기",
+            "seed_count": 0,
+            "grown_count": 1,
             "harvest_count": 0,
             "focused_seconds": 60
           },
           {
             "crop_id": "10000000-0000-4000-8000-000000000004",
             "crop_name": "옥수수",
+            "seed_count": 0,
+            "grown_count": 1,
             "harvest_count": 1,
             "focused_seconds": 80
           }
@@ -237,6 +275,8 @@
           {
             "crop_id": "10000000-0000-4000-8000-000000000004",
             "crop_name": "옥수수",
+            "seed_count": 1,
+            "grown_count": 0,
             "harvest_count": 0,
             "focused_seconds": 70
           }
@@ -255,24 +295,32 @@
       {
         "crop_id": "10000000-0000-4000-8000-000000000001",
         "crop_name": "새싹채소",
+        "seed_count": 1,
+        "grown_count": 0,
         "harvest_count": 0,
         "focused_seconds": 0
       },
       {
         "crop_id": "10000000-0000-4000-8000-000000000002",
         "crop_name": "당근",
+        "seed_count": 1,
+        "grown_count": 4,
         "harvest_count": 3,
         "focused_seconds": 150
       },
       {
         "crop_id": "10000000-0000-4000-8000-000000000003",
         "crop_name": "딸기",
+        "seed_count": 0,
+        "grown_count": 1,
         "harvest_count": 0,
         "focused_seconds": 60
       },
       {
         "crop_id": "10000000-0000-4000-8000-000000000004",
         "crop_name": "옥수수",
+        "seed_count": 1,
+        "grown_count": 1,
         "harvest_count": 1,
         "focused_seconds": 150
       }

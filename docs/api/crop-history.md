@@ -1,14 +1,14 @@
 # 작물별 집중 및 수확 기록 — get_crop_history
 
-후속 확장: [grown_count·seed_count 추가 계약](history-crop-counts.md).
-아래 최초 배포 계약에 더해 일/월/누적 작물 객체에 두 숫자를 추가합니다.
-get_focus_history에도 일별 crops가 추가되므로 아래의 ‘기존 함수 변경 없음’은 최초 배포 기준입니다.
+최신 확장: [grown_count·seed_count 추가 계약](history-crop-counts.md), Staging VERIFIED_REMOTE.
+일/월/누적 작물 객체에 두 숫자를 추가했습니다. get_focus_history에도 일별 crops를 추가했고
+그 밖의 기존 필드·의미를 유지합니다. 최초 배포 이력은 별도 검증 보고서에 보존합니다.
 
 Issue: [#31](https://github.com/2026Ganzi-Thon/2026_GANZITHON_TEAM_29_BE/issues/31).
 현재 검증 상태: **VERIFIED_REMOTE** (2026-11-18, focus-farm-staging).
-배포 커밋 `5e06f34bf3e5ba3e7d6d08c5b3f46437da343ebf`.
-[배포·원격 E2E·정리·CI 기록](../deployment/crop-history-staging-verification.md)을 따른다.
-마이그레이션: `20261118132003_a_crop_history.sql` (Supabase CLI 3.1.0 생성).
+최신 배포 커밋 `743c88a50fc2d31201a573b6d5ea592ff8e9ddbb`.
+[최신 배포·원격 E2E 기록](../deployment/history-crop-counts-staging-verification.md)을 따른다.
+최초 마이그레이션 20261118132003, 집계 확장 20261118135436 (Supabase CLI 3.1.0 생성).
 
 ## 요청과 화면 연결
 
@@ -44,14 +44,14 @@ const all = await supabase.rpc('get_crop_history', { p_period: 'all' })
   "items": [{
     "record_date": "2026-11-18", "focused_seconds": 150, "harvest_count": 3,
     "crops": [
-      {"crop_id":"10000000-0000-4000-8000-000000000001","crop_name":"새싹채소","focused_seconds":0,"harvest_count":0},
-      {"crop_id":"10000000-0000-4000-8000-000000000002","crop_name":"당근","focused_seconds":150,"harvest_count":3}
+      {"crop_id":"10000000-0000-4000-8000-000000000001","crop_name":"새싹채소","focused_seconds":0,"harvest_count":0,"grown_count":0,"seed_count":1},
+      {"crop_id":"10000000-0000-4000-8000-000000000002","crop_name":"당근","focused_seconds":150,"harvest_count":3,"grown_count":4,"seed_count":1}
     ]
   }],
   "monthly": [],
   "crop_totals": [
-    {"crop_id":"10000000-0000-4000-8000-000000000001","crop_name":"새싹채소","focused_seconds":0,"harvest_count":0},
-    {"crop_id":"10000000-0000-4000-8000-000000000002","crop_name":"당근","focused_seconds":150,"harvest_count":3}
+    {"crop_id":"10000000-0000-4000-8000-000000000001","crop_name":"새싹채소","focused_seconds":0,"harvest_count":0,"grown_count":0,"seed_count":1},
+    {"crop_id":"10000000-0000-4000-8000-000000000002","crop_name":"당근","focused_seconds":150,"harvest_count":3,"grown_count":4,"seed_count":1}
   ]
 }
 ```
@@ -112,10 +112,13 @@ reset_farm_history로 마지막 확정 참조가 사라지면 즉시 가시성�
 - start_focus: 명시적 활성 검사로 비활성 작물 심기 계속 거부.
 - get_my_farm: 기존 LEFT JOIN 유지. 본인 ripe 비활성 작물의 메타데이터를 읽을 수 있게 된다.
   focusing/paused만으로는 권한을 얻지 않는다. 기존 null 가능성이 있어 프론트는 null 안전 처리 유지.
-- get_focus_history: 함수 본문/권한/응답과 테스트 모두 변경 없음. crops 조인이 없어 합계 유지.
+- get_focus_history: 기존 필드·권한·의미를 유지하고 일별 crops만 추가. 보강된 공통 집계 RPC를 사용.
 - B 수확/종료/휴식/Cron은 변경하지 않는다. 작물 FK 및 UNIQUE도 그대로다.
 
 ## QA 및 성능
+
+아래 419개 테스트 및 성능표는 최초 16개 migration 버전의 검증 이력입니다.
+집계 보강 후 최신 결과는 **454/454 PASS**이며 [보강 명세](history-crop-counts.md)를 따릅니다.
 
 기존 pgTAP 343개를 유지했다. 신규 76개 테스트는 인증/입력/기간/집계/정렬/타입/0초/비활성/RLS/
 초기화/읽기 불변/시간대/32-bit 초과 합계 및 기존 summary 일치를 검사한다.
@@ -168,6 +171,6 @@ Figma node 63:1848의 메타데이터에서 S14/S15/S15-1 기록 화면과 씨�
 Notion 링크는 접근 불가였으므로 이 문서를 붙여넣기용 API 명세로 사용할 수 있다.
 
 현재 crop별 focused_seconds는 씨앗 보관·수확 대기·수확 완료 시간을 합친다.
-summary.seed_count만으로 작물별 씨앗 시간/횟수를 분리할 수 없다.
+보강된 crop.seed_count로 씨앗 횟수는 구분할 수 있지만 focused_seconds에서 씨앗 시간을 분리할 수 없다.
 S14에서 이를 별도 표시하려면 팀 합의 후 seed_focused_seconds 등의 계약을 추가해야 한다.
 이번 작업에서는 응답 필드를 늘리지 않았다.

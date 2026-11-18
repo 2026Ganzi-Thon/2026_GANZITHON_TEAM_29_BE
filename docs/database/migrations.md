@@ -37,9 +37,9 @@
 14. `20261115021000_b_overwork_precision.sql` — 안내 시간 정밀도
 15. `20261118052002_b_reset_farm_history.sql` — S16 본인 활동 초기화, 계정·프로필·밭 보존
 16. `20261118132003_a_crop_history.sql` — 작물별 집중·실제 수확 기록과 승인된 비활성 작물 SELECT 정책
-17. `20261118135436_a_history_crop_counts.sql` — 두 기록 API의 작물별 성장·씨앗 횟수 확장(배포 상태는 보강 명세 참조)
+17. `20261118135436_a_history_crop_counts.sql` — 두 기록 API의 작물별 성장·씨앗 횟수 확장(Staging 적용·원격 검증 완료)
 
-Staging에는 16개가 적용됐습니다. get_crop_history 배포는 앞선 15개를 보존하고 신규 1개만 추가했습니다. Staging 전용 Cron Job은 일반 마이그레이션이 아닌 ops/staging에서 관리하며 가드는 정확한 16개 목록을 검사합니다. Cron Job 자체는 이번 배포에서 변경하지 않았습니다.
+Staging에는 17개가 적용됐습니다. 성장·씨앗 집계 보강은 앞선 16개를 보존하고 신규 1개만 추가했습니다. Staging 전용 Cron Job은 일반 마이그레이션이 아닌 ops/staging에서 관리하며 가드는 정확한 17개 목록을 검사합니다. Cron Job 자체는 이번 배포에서 변경하지 않았습니다.
 
 ## 생성 규칙
 
