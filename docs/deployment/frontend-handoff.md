@@ -2,9 +2,10 @@
 
 작물별 기록 신규 API: [get_crop_history 계약·검증 상태](../api/crop-history.md).
 S14는 crop_totals, S15는 items[].crops, S15-1은 monthly[].crops와 crop_totals를 사용합니다.
-새 API의 원격 검증 전에는 기존 API의 VERIFIED_REMOTE 상태를 신규 API에 확대 해석하지 않습니다.
+신규 API도 실제 Auth/RPC·비활성 작물 RLS E2E **VERIFIED_REMOTE**입니다.
+[배포·CI·테스트 정리 기록](crop-history-staging-verification.md)을 확인합니다.
 
-검증일: 2026-11-15 (Asia/Seoul). **Staging 실제 Auth·인증 RPC·예약 자동 수확 E2E 통과**입니다. 상세 범위와 제한은 [원격 E2E 기록](staging-remote-e2e.md)을 따릅니다.
+최신 추가 검증일: 2026-11-18 (Asia/Seoul, get_crop_history). 기존 2026-11-15 **Staging 실제 Auth·인증 RPC·예약 자동 수확 E2E 통과**의 범위와 제한은 [원격 E2E 기록](staging-remote-e2e.md)을 따릅니다. 이번 작업은 Cron 설정·ACTIVE 유지 확인이며 예약 수확 E2E를 새로 수행했다고 주장하지 않습니다.
 
 ## 연결 정보
 
@@ -16,7 +17,7 @@ S14는 crop_totals, S15는 items[].crops, S15-1은 monthly[].crops와 crop_total
 | Project URL | https://klanbfvywwudprunaqdf.supabase.co |
 | REST API Base URL | https://klanbfvywwudprunaqdf.supabase.co/rest/v1 |
 | Publishable key | `sb_publishable_BhYc2LCiC6QLv6bVUiyzlA_XP7sbz29` |
-| 배포한 main SHA | `5cc72ca035d41c359dae9ffd04f441e64df29030` (S16, 2026-11-18) |
+| 배포한 main SHA | `5e06f34bf3e5ba3e7d6d08c5b3f46437da343ebf` (get_crop_history, 2026-11-18) |
 | Supabase CLI | 3.1.0 |
 
 위 key는 이 프로젝트에서 조회한 브라우저용 공개 키입니다. Secret/service_role key, DB 비밀번호, access/refresh token은 프론트 환경변수·문서·로그에 넣지 않습니다. CLI의 `production` 출력은 해당 프로젝트의 기본 브랜치 분류이며 팀 환경은 STAGING입니다.
@@ -63,6 +64,7 @@ await supabase.auth.signOut()
 | `list_crops({p_energy:'low'})` | `[{crop_id:'uuid',name:'새싹채소',target_seconds:600,recommended:true,sort_order:1}, ...]` | S04/S05 / 네트워크 1회 |
 | `get_my_farm()` | `[{plot_id:'uuid',plot_index:1,farm_status:'empty',session_id:null,session_status:null,crop_id:null,crop_name:null,target_seconds:null}, ...]` | S02/S03 / 네트워크 1회 |
 | `get_focus_history({p_period:'week'})` | `{period,range:{start_date,end_date,timezone},summary:{focused_seconds,seed_count,harvest_count},items:[{record_date,focused_seconds,seed_count,harvest_count}],capabilities:{harvest_count:true}}` | S14/S15 / 네트워크 1회 |
+| `get_crop_history({p_period:'week'})` | `{period,summary:{focused_seconds,seed_count,harvest_count},items:[{record_date,focused_seconds,harvest_count,crops}],monthly:[],crop_totals:[{crop_id,crop_name,focused_seconds,harvest_count}]}` | S14/S15/S15-1 / 네트워크 1회 |
 | `ensure_farm()` | `[{plot_id:'uuid',plot_index:1}, ...]` 초기 12개 | S01 / 멱등 재시도 |
 | `start_focus({p_plot_id:'uuid',p_crop_id:'uuid'})` | `{session_id,plot_id,crop_id,status:'focusing',started_at,target_seconds,server_now}` | 작물 선택 후 / 자동 재시도 금지, 활성 세션 먼저 복원 |
 | `get_active_focus()` | `{session:null,server_now,show_overwork_notice:false}` 또는 아래 세션 객체 | 집중 화면 / 네트워크 1회 |
@@ -78,7 +80,7 @@ await supabase.auth.signOut()
 | `start_rest({p_harvest_id:'uuid'})` | `{rest_ends_at,server_now}` | 수동 수확 후 / 동일 ID 멱등 재시도 |
 | `claim_overwork_notice({p_session_id:'uuid'})` | `{show_overwork_notice:true}` 또는 `false` | 집중 화면 후보→S12 / 응답 유실 후 true 재전달 보장 없음 |
 
-모든 앱 RPC는 로그인한 `authenticated` 사용자 전용입니다. 추가 DB 관리 함수 `process_due_harvests()`는 `{processed_count}`를 반환하지만 **anon/authenticated/service_role 모두 EXECUTE 없음**, DB 소유자의 관리 실행 전용입니다. 프론트에서 호출하지 않습니다. 신규 `reset_farm_history()`도 배포 및 실제 SDK **VERIFIED_REMOTE**입니다. [S16 명세](../api/s16-reset-contract.md)·[보존/삭제/E2E/재시도 기록](s16-staging-verification.md)을 따릅니다. 앱 RPC는 현재 20개이며 원격 migration은 15개입니다.
+모든 앱 RPC는 로그인한 `authenticated` 사용자 전용입니다. 추가 DB 관리 함수 `process_due_harvests()`는 `{processed_count}`를 반환하지만 **anon/authenticated/service_role 모두 EXECUTE 없음**, DB 소유자의 관리 실행 전용입니다. 프론트에서 호출하지 않습니다. 신규 `reset_farm_history()`도 배포 및 실제 SDK **VERIFIED_REMOTE**입니다. [S16 명세](../api/s16-reset-contract.md)·[보존/삭제/E2E/재시도 기록](s16-staging-verification.md)을 따릅니다. 앱 RPC는 현재 21개이며 원격 migration은 16개입니다.
 
 `get_active_focus().session`이 존재하면 `{session_id,plot_id,crop_id,status,started_at,paused_at,target_seconds,focused_seconds,remaining_seconds}`입니다. 목표에 도달하거나 일시정지 24시간 만료 시 조회에서는 숨기므로 `finalize_my_focus()`로 상태를 확정한 뒤 재조회합니다. 미리보기 유효 토큰은 자동 확정을 최대 5분 보류합니다.
 

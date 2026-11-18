@@ -1,7 +1,9 @@
 # 작물별 집중 및 수확 기록 — get_crop_history
 
 Issue: [#31](https://github.com/2026Ganzi-Thon/2026_GANZITHON_TEAM_29_BE/issues/31).
-현재 검증 상태: **VERIFIED_LOCAL_ONLY / 원격 배포 PENDING**.
+현재 검증 상태: **VERIFIED_REMOTE** (2026-11-18, focus-farm-staging).
+배포 커밋 `5e06f34bf3e5ba3e7d6d08c5b3f46437da343ebf`.
+[배포·원격 E2E·정리·CI 기록](../deployment/crop-history-staging-verification.md)을 따른다.
 마이그레이션: `20261118132003_a_crop_history.sql` (Supabase CLI 3.1.0 생성).
 
 ## 요청과 화면 연결
@@ -50,10 +52,10 @@ const all = await supabase.rpc('get_crop_history', { p_period: 'all' })
 }
 ```
 
-위 값은 로컬 SDK fixture의 실제 응답이다. week도 같은 5개 필드를 반환하며 날짜 7개,
+위 값은 로컬 및 Staging SDK fixture의 실제 응답이다. week도 같은 5개 필드를 반환하며 날짜 7개,
 monthly는 빈 배열이다. all은 기록 날짜만 items에, 기록 월만 monthly에 포함한다.
 월별 항목은 `{month:"YYYY-MM",focused_seconds,harvest_count,crops:[...]}`다.
-기간별 전체 실제 응답은 [실측 예제 JSON](crop-history-examples.json)을 따른다.
+기간별 전체 실제 Staging 응답은 [실측 예제 JSON](crop-history-examples.json)을 따른다.
 
 문자열: period, record_date(YYYY-MM-DD), month(YYYY-MM), crop_id(UUID), crop_name.
 집계는 JSON number 정수이며 내부 합계는 bigint다. 숫자 null/문자열과 배열 null을 반환하지 않는다.
@@ -118,6 +120,10 @@ SDK 테스트는 실제 signUp/signInWithPassword/getSession/signOut과 RPC/직�
 기존 Auth/RPC·History·Farm reset SDK, 신규 Crop history SDK, DB lint 및 npm audit(취약점 0)도 통과했다.
 신규 SDK의 비활성 RLS 검증은 별도 비활성 테스트 작물 5개만 만들고 기존 6종은 변경하지 않는다.
 테스트 계정을 로그아웃·삭제한 뒤 이 작물도 정확한 UUID/이름 조건으로 제거하고 잔여 0건을 확인한다.
+동일 SDK를 Staging에서 실행해 기간별 합계·격리·비활성 RLS·초기화·익명 HTTP 401/42501과
+잘못된 기간 HTTP 400/22023을 **VERIFIED_REMOTE**로 확인했다.
+누락 프로필·JWT 없는 authenticated 역할·service_role 거부의 실행 재현은 pgTAP에서 검증했다.
+원격에서는 service_role 실행 권한 없음도 시스템 카탈로그로 확인했으며 secret key는 사용하지 않았다.
 
 로컬 재현 명령:
 
