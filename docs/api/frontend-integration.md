@@ -1,6 +1,10 @@
 # A 담당 프론트엔드 연동 가이드
 
-이 문서는 Supabase JS를 사용하는 별도 프론트엔드 저장소의 연동 계약입니다. `get_my_farm()`과 `get_focus_history()`는 `develop` 병합과 대상 환경 배포 후 호출할 수 있습니다. S 화면 원본은 백엔드 저장소에서 확인하지 못했으므로 제공된 화면 번호만 매핑하며 UI 전용 필드를 DB 계약으로 추가하지 않습니다.
+최신 작물별 집계 확장: [두 기록 API 보강 계약·검증 상태](history-crop-counts.md).
+기존 get_focus_history 호출을 유지하면서 items[].crops를 사용할 수 있습니다.
+grown_count는 성장 완료(ripe+harvested), harvest_count는 실제 수확이며 서로 다릅니다.
+
+이 문서는 Supabase JS를 사용하는 별도 프론트엔드 저장소의 연동 계약입니다. 기존 A API와 신규 get_crop_history는 Staging에서 호출할 수 있습니다. S14/S15/S15-1의 Figma 메타데이터와 제공된 계약을 대조했으며, 프론트 구현이나 픽셀 검수는 하지 않았습니다. UI 전용 필드를 DB 계약에 임의로 추가하지 않습니다.
 
 ## 클라이언트 설정과 키 구분
 
@@ -80,7 +84,7 @@ export function normalizeBackendError(error, hasSession) {
 - `PGRST301`: 파싱 불가·변조·만료 JWT
 - 사용자 메시지에 토큰, SQL, DB 세부 오류를 표시하지 않음
 
-## A RPC 5개
+## A RPC 6개
 
 모든 A RPC는 로그인 세션이 필요합니다.
 
@@ -203,6 +207,20 @@ const { data, error } = await supabase.rpc('get_focus_history', {
 - 수확 스키마 전에는 `harvest_count`가 숫자가 아님
 
 화면은 `capabilities.harvest_count === true`일 때만 수확 수를 숫자로 표시합니다. `false`이면 숨김 또는 “준비 중” 상태로 처리하며 0회 수확으로 해석하지 않습니다.
+
+### 신규 `get_crop_history(p_period)` — S14/S15/S15-1
+
+```js
+const today = await supabase.rpc('get_crop_history', { p_period: 'today' })
+const week = await supabase.rpc('get_crop_history', { p_period: 'week' })
+const all = await supabase.rpc('get_crop_history', { p_period: 'all' })
+```
+
+성공 구조는 `{period,summary:{focused_seconds,harvest_count,seed_count},items,monthly,crop_totals}`입니다.
+에러 정규화는 기존 함수를 사용합니다. 기간 탭마다 호출하고 이전 요청 결과를 폐기합니다.
+로딩 중에는 기존 화면 정책을 유지하고, 네트워크 오류는 1회 재시도하며 정상 빈 배열은 빈 상태로 표시합니다.
+Staging 실제 SDK 검증 완료입니다. [전체 응답·빈 값·보안·화면 매핑](crop-history.md)을 따릅니다.
+기존 get_focus_history와 달리 새 응답에는 capabilities가 없으며 harvest_count는 항상 숫자입니다.
 
 ## 로그인·온보딩·농장 진입
 

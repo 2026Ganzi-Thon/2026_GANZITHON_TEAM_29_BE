@@ -4,6 +4,10 @@
 
 ## 공통 규칙
 
+프론트 추가 요구사항: [기록 API 작물별 성장·씨앗 집계 보강](history-crop-counts.md).
+get_focus_history의 items[].crops와 get_crop_history의 일/월/누적 grown_count·seed_count는
+해당 보강 명세를 따릅니다. 기존 harvest_count와 모든 기존 필드는 유지합니다.
+
 신규 A 조회 RPC `get_crop_history(p_period text)`는 [작물별 기록 최종 명세](crop-history.md)를 따릅니다.
 기존 `get_focus_history()`는 변경하지 않습니다. 새 응답은 period/summary/items/monthly/crop_totals
 5개 필드이며, 본인 확정 기록의 비활성 작물만 추가 SELECT하는 승인된 RLS 예외를 적용합니다.
@@ -41,7 +45,7 @@ await supabase.auth.getSession()
 await supabase.auth.signOut()
 ```
 
-`nickname`은 표시 정보로만 사용하고 소유권 판단에 사용하지 않습니다. 신규 가입을 허용하고 Confirm email은 OFF이며 이메일 인증 링크를 사용하지 않습니다. Staging Dashboard 저장은 완료됐지만 원격 회원가입 동작은 아직 실측하지 않았습니다. Redirect URL과 Auth 상세 오류 매핑은 A/프론트엔드가 별도로 확정합니다.
+`nickname`은 표시 정보로만 사용하고 소유권 판단에 사용하지 않습니다. 신규 가입을 허용하고 Confirm email은 OFF이며 이메일 인증 링크를 사용하지 않습니다. Staging 실제 회원가입·로그인·즉시 세션 발급은 원격 SDK로 검증했습니다. Redirect URL과 Auth 상세 오류 매핑은 A/프론트엔드가 별도로 확정합니다.
 
 ## 오류 계약
 
@@ -119,6 +123,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 |---|---|---|
 | `get_my_farm()` | 없음 | 구현·검증 완료 |
 | `get_focus_history(p_period)` | `today | week | all` | 집중 시간·씨앗·수확 집계 구현 |
+| `get_crop_history(p_period)` | `today | week | all` | 작물별 일/월/누적 기록, Staging VERIFIED_REMOTE |
 
 권장안·예시·결정 대기 항목은 [조회 모델 설계](read-model-design.md)에 기록합니다.
 

@@ -71,10 +71,11 @@ S14의 씨앗/수확대기/수확완료별 집중 시간 분리는 현재 응답
 
 ## 참고
 
-2026-11-18 실제 기존 기능 회귀 검증: npm ci 성공, pgTAP 343/343 PASS,
+정책 승인 전 2026-11-18 최초 기존 기능 회귀 검증: npm ci 성공, pgTAP 343/343 PASS,
 Auth/RPC·History·Farm reset SDK 통합 PASS, DB lint 오류 없음, npm audit 취약점 0건.
-신규 API 테스트, 신규 성능 측정, 신규 원격 E2E는 PENDING이다.
-기존 로컬 DB를 reset하지 않고 현재 실행 중인 로컬 스택에서 검증했다.
+이 최초 검증에서는 기존 로컬 DB를 reset하지 않고 당시 실행 중인 로컬 스택에서 검증했다.
+정책 승인 후 신규 API·성능·원격 E2E까지 완료했다. 최신 결과는
+[Staging 검증 보고서](../deployment/crop-history-staging-verification.md)를 따른다.
 
 - [Supabase RLS 공식 문서](https://supabase.com/docs/guides/database/postgres/row-level-security)
 - [Supabase changelog](https://supabase.com/changelog.md)
