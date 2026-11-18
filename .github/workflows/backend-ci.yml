@@ -55,6 +55,9 @@ jobs:
       - name: Run focus history integration tests
         run: npm run test:history
 
+      - name: Run farm reset integration tests
+        run: npm run test:reset
+
       - name: Lint database schema
         run: npm run db:lint
 

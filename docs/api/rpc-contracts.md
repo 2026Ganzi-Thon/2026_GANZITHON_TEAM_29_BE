@@ -149,7 +149,7 @@ const { data, error } = await supabase.rpc('list_crops', { p_energy: 'low' })
 - 프로필이 없으면 `PT404`, 익명 호출은 실행 권한이 없어 `42501`입니다.
 - 농장 상태 조회는 후속 `get_my_farm()`이 담당합니다.
 
-`preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `cancel_stop_focus(p_stop_token)`은 아래 중도 종료 계약을 따릅니다. `harvest_crop(p_session_id)`, `process_due_harvests()`, `ack_auto_harvest_notice(p_harvest_ids)`, `start_rest(p_harvest_id)`, `reset_farm_history()`의 함수명과 입력명은 유지하며 세부 반환 형식은 B가 제안하고 A/프론트엔드와 확정하기 전까지 `TBD`입니다.
+`preview_stop_focus(p_session_id)`, `confirm_stop_focus(p_stop_token)`, `cancel_stop_focus(p_stop_token)`은 아래 중도 종료 계약을 따릅니다. 수확·알림·휴식은 아래 해당 절을, `reset_farm_history()`는 [S16 확정 명세](s16-reset-contract.md)를 따릅니다. 초기화는 인증된 POST `{}`에 `{"success":true}`를 반환하며 계정·로그인·프로필·온보딩·plot ID를 유지하고 본인 활동만 삭제합니다. 자동 재시도는 금지합니다.
 
 ## 상태
 
