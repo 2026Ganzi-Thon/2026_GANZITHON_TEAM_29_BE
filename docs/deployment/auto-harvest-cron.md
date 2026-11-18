@@ -92,4 +92,4 @@ select cron.alter_job((select jobid from cron.job
 
 관리 함수 EXECUTE: postgres=true, anon/authenticated/service_role=false. cron 스키마 USAGE도 관리자만 가능하며 일반 세 역할은 false입니다. 확장이 생성한 cron 테이블의 ACL 조회에서는 일반 역할 SELECT가 true로 보일 수 있으나 스키마 USAGE가 없어 직접 이름으로 접근할 수 없습니다. 기존 Supabase 관리 테이블 ACL을 무분별하게 철회하지 않았습니다.
 
-앱의 public/private 테이블 RLS와 기존 API 권한은 유지합니다. 신규 마이그레이션을 추가하지 않아 원격 이력은 14개 그대로입니다.
+최초 Cron 활성화 시 원격 이력은 14개였으며 S16 배포 후에는 15개입니다. 갱신된 가드를 실제 재실행해 통과했고 기존 Job ID 1·ACTIVE 상태를 유지했습니다. [S16 배포 기록](s16-staging-verification.md)에 reset 이후 실제 예약 실행과 데이터 미복원 검증을 남겼습니다. 앱 RLS와 기존 권한은 유지됩니다.
